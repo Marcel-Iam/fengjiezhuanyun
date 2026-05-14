@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#f5f0eb;--card:#ffffff;--border:#d4cdc4;--text:#2c2825;--text-light:#7a7269;--accent:#b8860b;--accent-hover:#9a7209;--danger:#c0392b;--success:#27ae60;--input-bg:#faf8f5;--warn-bg:#fff3cd;--warn-border:#e6c34d;--warn-text:#856404;}
+  body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;}
+  .container{max-width:1100px;margin:0 auto;}
+  h1{font-weight:500;font-size:1.5rem;margin-bottom:20px;color:var(--accent);}
+  .gate{display:flex;justify-content:center;align-items:center;min-height:60vh;}
+  .gate-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px;text-align:center;width:320px;}
+  .gate-box h2{font-weight:500;font-size:1.1rem;margin-bottom:16px;}
+  .gate-box input{width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;font-size:0.9rem;margin-bottom:12px;background:var(--input-bg);font-family:'Noto Sans SC',sans-serif;}
+  .gate-box input:focus{outline:none;border-color:var(--accent);}
+  .tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);flex-wrap:wrap;}
+  .tab{padding:10px 14px;cursor:pointer;font-size:0.82rem;font-weight:500;color:var(--text-light);border-bottom:2px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans SC',sans-serif;transition:color 0.2s;white-space:nowrap;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab:hover{color:var(--accent);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  .sub-tabs{display:flex;gap:0;}
+  .sub-tab{padding:6px 16px;cursor:pointer;font-size:0.8rem;font-weight:500;color:var(--text-light);background:var(--card);border:1px solid var(--border);font-family:'Noto Sans SC',sans-serif;transition:all 0.2s;}
+  .sub-tab:first-child{border-radius:4px 0 0 4px;}
+  .sub-tab:last-child{border-radius:0 4px 4px 0;border-left:none;}
+  .sub-tab.active{color:#fff;background:var(--accent);border-color:var(--accent);}
+  .btn{font-family:'Noto Sans SC',sans-serif;padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;font-weight:500;transition:background 0.2s;}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-accent:hover:not(:disabled){background:var(--accent-hover);}
+  .btn-danger{background:var(--danger);color:#fff;}
+  .btn-danger:hover:not(:disabled){background:#a93226;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-light);}
+  .btn-outline:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+  .btn-success{background:var(--success);color:#fff;}
+  .btn-success:hover:not(:disabled){background:#219a52;}
+  .btn-sm{padding:3px 8px;font-size:0.75rem;}
+  input,select,textarea{font-family:'Noto Sans SC',sans-serif;padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;background:var(--input-bg);color:var(--text);width:100%;max-width:100%;box-sizing:border-box;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  textarea{resize:vertical;min-height:50px;}
+  .section{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+  .toolbar-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .toolbar-right{display:flex;gap:8px;align-items:center;}
+  .toolbar span{font-size:0.8rem;color:var(--text-light);}
+  .data-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+  .data-table th,.data-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  .data-table th{font-weight:500;color:var(--text-light);font-size:0.78rem;background:var(--input-bg);position:sticky;top:0;}
+  .data-table td{vertical-align:top;}
+  .data-table tr:hover td{background:#faf8f5;}
+  .data-table input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
+  .table-wrap{overflow-x:auto;}
+  .qty-cell{text-align:center;font-variant-numeric:tabular-nums;}
+  .total-row td{font-weight:600;background:var(--input-bg);border-top:2px solid var(--border);}
+  .product-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .product-row input{flex:1;}
+  .empty-state{text-align:center;padding:40px;color:var(--text-light);font-size:0.9rem;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;justify-content:center;align-items:center;z-index:960;padding:20px;}
+  .modal-overlay.active{display:flex;}
+  .modal{background:var(--card);border-radius:8px;padding:24px;width:360px;max-width:90vw;}
+  .modal h3{font-weight:500;font-size:1rem;margin-bottom:16px;}
+  .modal .form-group{margin-bottom:12px;}
+  .modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+  .edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;justify-content:center;align-items:flex-start;z-index:950;padding:20px;overflow-y:auto;}
+  .edit-overlay.active{display:flex;}
+  .edit-panel{background:var(--card);border-radius:8px;padding:24px;width:700px;max-width:95vw;margin:20px auto;}
+  .edit-panel h3{font-weight:500;font-size:1.1rem;margin-bottom:16px;color:var(--accent);}
+  .edit-section{border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;background:var(--input-bg);}
+  .edit-section-title{font-weight:500;font-size:0.9rem;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .form-row{display:flex;gap:12px;margin-bottom:12px;}
+  .form-group{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .form-group label{font-size:0.8rem;color:var(--text-light);margin-bottom:4px;}
+  .e-product-line{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .e-product-line select{flex:3;min-width:0;}
+  .e-product-line input{flex:1;min-width:0;}
+  .e-product-line button{flex:0 0 auto;background:none;border:none;color:var(--danger);cursor:pointer;font-size:1.1rem;padding:4px 8px;}
+  .recipient-card{border:1px solid var(--border);border-radius:6px;padding:14px;margin-bottom:12px;background:#fff;}
+  .recipient-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .recipient-header span{font-weight:500;font-size:0.88rem;}
+  .add-btn{width:100%;padding:8px;border:2px dashed var(--border);background:transparent;border-radius:6px;color:var(--text-light);cursor:pointer;font-family:'Noto Sans SC',sans-serif;font-size:0.85rem;}
+  .add-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .confirm-box{width:100%;max-width:400px;background:#fff;border-radius:10px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,0.18);}
+  .confirm-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;color:var(--danger);}
+  .confirm-message{font-size:0.9rem;line-height:1.6;margin-bottom:18px;}
+  .confirm-actions{display:flex;gap:10px;}
+  .confirm-actions .btn{flex:1;padding:10px;}
+  .validation-box{padding:12px 16px;border-radius:6px;font-size:0.85rem;margin-bottom:12px;display:none;}
+  .validation-box.warn{display:block;background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);}
+  .history-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .history-item:last-child{border-bottom:none;}
+  .history-info{display:flex;flex-direction:column;gap:2px;}
+  .history-date{font-weight:500;font-size:0.9rem;}
+  .history-meta{font-size:0.78rem;color:var(--text-light);}
+  .toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:6px;color:#fff;font-size:0.9rem;z-index:999;display:none;animation:slideIn 0.3s ease;}
+  .toast.success{background:var(--success);}.toast.error{background:var(--danger);}
+  .incoming-block{border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:#fff;}
+  .incoming-block-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .incoming-block-header span{font-weight:500;font-size:0.85rem;}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+  .loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:none;justify-content:center;align-items:center;z-index:998;}
+  .loading-overlay.active{display:flex;}
+  .spinner{width:40px;height:40px;border:3px solid #fff;border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media(max-width:700px){body{padding:12px;}.section{padding:14px;}.tab{padding:8px 8px;font-size:0.75rem;}.form-row{flex-direction:column;gap:8px;}.confirm-actions{flex-direction:column;}}
+</style>
+</head>
+<body>
+<div id="gateView" class="gate"><div class="gate-box"><h2>管理后台</h2><input type="password" id="pwdInput" placeholder="输入密码" onkeydown="if(event.key==='Enter')checkPwd()"><button class="btn btn-accent" style="width:100%;padding:10px;" onclick="checkPwd()">进入</button></div></div>
+
+<div id="adminView" class="container" style="display:none;">
+  <h1>管理后台</h1>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('incoming')">来件管理</button>
+    <button class="tab" onclick="switchTab('shipping')">寄件管理</button>
+    <button class="tab" onclick="switchTab('history')">历史档案</button>
+    <button class="tab" onclick="switchTab('products')">产品管理</button>
+  </div>
+
+  <!-- 来件管理 -->
+  <div id="tab-incoming" class="tab-content active">
+    <div id="incActiveToolbar" class="toolbar">
+      <div class="toolbar-left">
+        <button class="btn btn-accent" onclick="exportIncomingPDF()">生成取件单</button>
+        <button class="btn btn-success" onclick="markPickedUp()">已取货</button>
+        <button class="btn btn-outline" id="incEditBtn" onclick="toggleIncomingEdit()">编辑</button>
+        <span id="incActiveCount"></span>
+      </div>
+      <div class="toolbar-right">
+        <div class="sub-tabs"><button class="sub-tab active" onclick="setIncomingView('active')">未取货</button><button class="sub-tab" onclick="setIncomingView('archived')">已取货</button></div>
+        <button class="btn btn-outline" onclick="loadOrders()">刷新</button>
+      </div>
+    </div>
+    <div id="incArchivedToolbar" class="toolbar" style="display:none;">
+      <div class="toolbar-left"><button class="btn btn-outline" id="incArchEditBtn" onclick="toggleIncomingEdit()">编辑</button></div>
+      <div class="toolbar-right">
+        <div class="sub-tabs"><button class="sub-tab" onclick="setIncomingView('active')">未取货</button><button class="sub-tab active" onclick="setIncomingView('archived')">已取货</button></div>
+        <button class="btn btn-outline" onclick="loadOrders()">刷新</button>
+      </div>
+    </div>
+    <div class="section"><div class="table-wrap" id="incomingTableWrap"></div></div>
+  </div>
+
+  <!-- 寄件管理 -->
+  <div id="tab-shipping" class="tab-content">
+    <div id="shpActiveToolbar" class="toolbar">
+      <div class="toolbar-left">
+        <button class="btn btn-accent" onclick="exportShippingPDF()">生成寄件单</button>
+        <button class="btn btn-success" onclick="markShipped()">已寄出</button>
+        <button class="btn btn-outline" id="shpEditBtn" onclick="toggleShippingEdit()">编辑</button>
+        <span id="shpActiveCount"></span>
+      </div>
+      <div class="toolbar-right">
+        <div class="sub-tabs"><button class="sub-tab active" onclick="setShippingView('active')">未寄出</button><button class="sub-tab" onclick="setShippingView('archived')">已寄出</button></div>
+        <button class="btn btn-outline" onclick="loadOrders()">刷新</button>
+      </div>
+    </div>
+    <div id="shpArchivedToolbar" class="toolbar" style="display:none;">
+      <div class="toolbar-left"><button class="btn btn-outline" id="shpArchEditBtn" onclick="toggleShippingEdit()">编辑</button></div>
+      <div class="toolbar-right">
+        <div class="sub-tabs"><button class="sub-tab" onclick="setShippingView('active')">未寄出</button><button class="sub-tab active" onclick="setShippingView('archived')">已寄出</button></div>
+        <button class="btn btn-outline" onclick="loadOrders()">刷新</button>
+      </div>
+    </div>
+    <div class="section"><div class="table-wrap" id="shippingTableWrap"></div></div>
+  </div>
+
+  <!-- 历史档案 -->
+  <div id="tab-history" class="tab-content">
+    <div class="toolbar">
+      <div class="toolbar-left"><button class="btn btn-outline" id="histEditBtn" onclick="toggleHistoryEdit()">编辑</button> <span id="historyCount"></span></div>
+      <div class="toolbar-right">
+        <div class="sub-tabs"><button class="sub-tab active" onclick="setHistoryView('pickup')">历史取货单</button><button class="sub-tab" onclick="setHistoryView('shipping')">历史寄件单</button></div>
+        <button class="btn btn-outline" onclick="loadHistory()">刷新</button>
+      </div>
+    </div>
+    <div class="section"><div id="historyList"></div></div>
+  </div>
+
+  <!-- 产品管理 -->
+  <div id="tab-products" class="tab-content">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span style="font-weight:500;">产品列表</span>
+        <button class="btn btn-accent" onclick="addProductRow()">+ 添加产品</button>
+      </div>
+      <div id="productList"></div>
+      <button class="btn btn-accent" onclick="saveProducts()" style="margin-top:12px;">保存产品列表</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导出来件提货单弹窗 -->
+<div class="modal-overlay" id="exportModal"><div class="modal"><h3>生成取件单</h3><div class="form-group"><label>提货日期</label><input type="date" id="exportDate"></div><div class="form-group"><label>提货人</label><input type="text" id="exportPerson" placeholder="提货人姓名"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('exportModal')">取消</button><button class="btn btn-accent" onclick="doExportIncomingPDF()">生成</button></div></div></div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal-overlay" id="deleteModal"><div class="confirm-box"><div class="confirm-title">确认删除</div><div id="deleteMessage" class="confirm-message"></div><div class="confirm-actions"><button class="btn btn-outline" onclick="closeModal('deleteModal')">取消</button><button class="btn btn-danger" onclick="doDeleteOrder()">删除</button></div></div></div>
+
+<!-- 删除档案确认弹窗 -->
+<div class="modal-overlay" id="deletePdfModal"><div class="confirm-box"><div class="confirm-title">确认删除档案</div><div id="deletePdfMessage" class="confirm-message"></div><div class="confirm-actions"><button class="btn btn-outline" onclick="closeModal('deletePdfModal')">取消</button><button class="btn btn-danger" onclick="doDeletePdf()">删除</button></div></div></div>
+
+<!-- 数量不匹配确认弹窗 -->
+<div class="modal-overlay" id="paidConfirmModal"><div class="confirm-box"><div class="confirm-title">确认收款</div><div id="paidConfirmMessage" class="confirm-message"></div><div class="confirm-actions"><button class="btn btn-outline" onclick="cancelPaidConfirm()">取消</button><button class="btn btn-success" onclick="doPaidConfirm()">确认已收运费</button></div></div></div>
+<div class="modal-overlay" id="qtyConfirmModal"><div class="confirm-box"><div class="confirm-title">产品数量不匹配</div><div id="qtyConfirmMessage" class="confirm-message"></div><div class="confirm-actions"><button class="btn btn-outline" onclick="closeModal('qtyConfirmModal')">取消</button><button class="btn btn-accent" onclick="confirmQtyMismatch()">仍然保存</button></div></div></div>
+
+<!-- 修改订单 overlay -->
+<div class="edit-overlay" id="editOverlay">
+<div class="edit-panel">
+  <h3>修改订单资料</h3>
+  <div class="edit-section">
+    <div class="edit-section-title">基本信息</div>
+    <div class="form-row">
+      <div class="form-group"><label>填表人称呼</label><input type="text" id="eCreatedBy" placeholder="例如：小陈"></div>
+    </div>
+  </div>
+  <div class="edit-section">
+    <div class="edit-section-title">来件信息</div>
+    <div id="eIncomingList"></div>
+    <button class="add-btn" onclick="addEIncomingBlock()" style="margin-top:4px;">+ 添加来件单</button>
+  </div>
+  <div class="edit-section">
+    <div class="edit-section-title">收件人信息</div>
+    <div id="eRecipientList"></div>
+    <button class="add-btn" onclick="addERecipient()">+ 添加收件人</button>
+  </div>
+  <div id="eValidationBox" class="validation-box"></div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-accent" style="flex:1;padding:10px;" onclick="saveEditOrder()">保存修改</button>
+    <button class="btn btn-outline" style="flex:1;padding:10px;" onclick="closeEditOverlay()">取消</button>
+  </div>
+</div>
+</div>
+
+<div id="pdfRender" style="position:absolute;left:-9999px;top:0;width:800px;"></div>
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+
+<script>
+const CONFIG={
+  workerUrl: 'https://fengjiezhuanyun.yamhl12.workers.dev',
+  adminToken: 'fj_2025_xK9mP3',
+  password: '456456'
+};
+
+const API = CONFIG.workerUrl;
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${CONFIG.adminToken}`
+};
+const HISTORY_PICKUP='history_pickup', HISTORY_SHIPPING='history_shipping';
+const TAB_NAMES=['incoming','shipping','history','products'];
+
+let orders=[],products=[],pendingExportIds=[];
+let incView='active',shpView='active',histView='pickup';
+let incEditMode=false,shpEditMode=false,histEditMode=false;
+let editingOrder=null,deleteOrderId=null;
+let eRecipientCount=0,eIncomingBlockCount=0;
+
+function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ===== Auth =====
+function checkPwd(){if(document.getElementById('pwdInput').value===CONFIG.password){document.getElementById('gateView').style.display='none';document.getElementById('adminView').style.display='block';initAdmin();}else showToast('密码错误','error');}
+async function initAdmin(){showLoading(true);try{await loadProducts();await loadOrders();await loadHistory();}catch(e){showToast('加载失败: '+e.message,'error');}showLoading(false);}
+
+// ===== API helpers =====
+async function apiFetch(path, options={}) {
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    headers: { ...HEADERS, ...(options.headers||{}) }
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e.error || `API error ${res.status}`);
+  }
+  return res.json();
+}
+
+// ===== Orders =====
+async function loadOrders(){
+  const data = await apiFetch('/api/orders');
+  orders = data;
+  orders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  renderAll();
+}
+function renderAll(){renderIncoming();renderShipping();}
+
+function prodIdsIn(list){const s=new Set();list.forEach(o=>o.incoming.forEach(inc=>inc.products.forEach(p=>s.add(p.product_id))));return[...s].sort();}
+function prodIdsOut(list){const s=new Set();list.forEach(o=>o.outgoing.forEach(r=>r.products.forEach(p=>s.add(p.product_id))));return[...s].sort();}
+function pn(id){const p=products.find(x=>x.id===id);return p?p.product_name:id;}
+function sel(g){return[...document.querySelectorAll(`input[data-group="${g}"]:checked`)].map(c=>c.value);}
+function togAll(g,v){document.querySelectorAll(`input[data-group="${g}"]`).forEach(c=>{c.checked=v;});}
+
+// ===== Sub-view toggles =====
+function setIncomingView(v){incView=v;incEditMode=false;document.getElementById('incEditBtn').textContent='编辑';document.getElementById('incArchEditBtn').textContent='编辑';document.getElementById('incActiveToolbar').style.display=v==='active'?'':'none';document.getElementById('incArchivedToolbar').style.display=v==='archived'?'':'none';renderIncoming();}
+function setShippingView(v){shpView=v;shpEditMode=false;document.getElementById('shpEditBtn').textContent='编辑';document.getElementById('shpArchEditBtn').textContent='编辑';document.getElementById('shpActiveToolbar').style.display=v==='active'?'':'none';document.getElementById('shpArchivedToolbar').style.display=v==='archived'?'':'none';renderShipping();}
+function setHistoryView(v){histView=v;histEditMode=false;document.getElementById('histEditBtn').textContent='编辑';document.querySelectorAll('#tab-history .sub-tab').forEach((t,i)=>{t.classList.toggle('active',i===(v==='pickup'?0:1));});renderHistoryList();}
+function toggleIncomingEdit(){incEditMode=!incEditMode;const lbl=incEditMode?'完成':'编辑';document.getElementById(incView==='active'?'incEditBtn':'incArchEditBtn').textContent=lbl;renderIncoming();}
+function toggleShippingEdit(){shpEditMode=!shpEditMode;const lbl=shpEditMode?'完成':'编辑';document.getElementById(shpView==='active'?'shpEditBtn':'shpArchEditBtn').textContent=lbl;renderShipping();}
+function toggleHistoryEdit(){histEditMode=!histEditMode;document.getElementById('histEditBtn').textContent=histEditMode?'完成':'编辑';renderHistoryList();}
+
+// ===== Render Incoming =====
+function renderIncoming(){
+  const active=orders.filter(o=>!o.picked_up);const archived=orders.filter(o=>o.picked_up);
+  document.getElementById('incActiveCount').textContent=`${active.length} 个未取货订单`;
+  document.querySelectorAll('#tab-incoming .sub-tab').forEach((t,i)=>{if(i===0)t.textContent=`未取货 (${active.length})`;});
+  const w=document.getElementById('incomingTableWrap');
+  const isActive=incView==='active';const list=isActive?active:archived;
+  if(!list.length){w.innerHTML=`<div class="empty-state">${isActive?'没有未取货订单':'没有已取货订单'}</div>`;return;}
+  const editMode=incEditMode;const pids=prodIdsIn(list);
+  const tot={};pids.forEach(id=>{tot[id]=0;});
+  let h='<table class="data-table"><thead><tr>';
+  if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll('incoming',this.checked)"></th>';
+  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
+  pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>日期</th><th>已付运费</th>';
+  if(editMode) h+='<th>操作</th>';
+  h+='</tr></thead><tbody>';
+  list.forEach(o=>{
+    const incList=o.incoming;const rowspan=incList.length;
+    incList.forEach((inc,ii)=>{
+      h+='<tr>';
+      if(ii===0){
+        if(isActive&&!editMode) h+=`<td rowspan="${rowspan}" style="vertical-align:middle"><input type="checkbox" data-group="incoming" value="${o.id}"></td>`;
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
+      }
+      h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
+      pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
+      if(ii===0){
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        if(editMode&&isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
+        if(editMode&&!isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnpicked('${o.id}')">未取货</button></td>`;
+      }
+      h+='</tr>';
+    });
+  });
+  if(isActive){
+    h+='<tr class="total-row">';
+    if(!editMode) h+='<td></td>';
+    h+='<td colspan="2"></td><td>合计</td>';
+    pids.forEach(id=>{h+=`<td class="qty-cell">${tot[id]}</td>`;});
+    h+='<td></td><td></td>';
+    if(editMode) h+='<td></td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  w.innerHTML=h;
+}
+
+// ===== Render Shipping =====
+function renderShipping(){
+  const active=orders.filter(o=>!o.shipped);const archived=orders.filter(o=>o.shipped);
+  const rc=active.reduce((s,o)=>s+o.outgoing.length,0);
+  document.getElementById('shpActiveCount').textContent=`${active.length} 个未寄出订单, ${rc} 个收件人`;
+  document.querySelectorAll('#tab-shipping .sub-tab').forEach((t,i)=>{if(i===0)t.textContent=`未寄出 (${active.length})`;});
+  const w=document.getElementById('shippingTableWrap');
+  const isActive=shpView==='active';const list=isActive?active:archived;
+  if(!list.length){w.innerHTML=`<div class="empty-state">${isActive?'没有未寄出订单':'没有已寄出订单'}</div>`;return;}
+  list.sort((a,b)=>{if(a.picked_up!==b.picked_up)return a.picked_up?-1:1;return new Date(b.created_at)-new Date(a.created_at);});
+  const editMode=shpEditMode;const pids=prodIdsOut(list);const tot={};pids.forEach(id=>{tot[id]=0;});
+  let h='<table class="data-table"><thead><tr>';
+  if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll('shipping',this.checked)"></th>';
+  h+='<th>填表人</th><th>订单号</th><th>收件人</th><th>地址</th><th>电话</th>';
+  pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>备注</th><th>已付运费</th>';
+  if(editMode) h+='<th>操作</th>';
+  h+='</tr></thead><tbody>';
+  list.forEach(o=>{
+    const rl=o.outgoing.length||1;
+    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
+    let actionHtml='';
+    if(editMode&&isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button>`;
+    if(editMode&&!isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnshipped('${o.id}')">未寄出</button>`;
+    o.outgoing.forEach((r,ri)=>{
+      h+='<tr>';
+      if(ri===0){
+        if(isActive&&!editMode) h+=`<td rowspan="${rl}" style="vertical-align:middle"><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
+        h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
+      }
+      h+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
+      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
+      h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
+      if(ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+      if(editMode&&ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle;white-space:nowrap">${actionHtml}</td>`;
+      h+='</tr>';
+    });
+    if(!o.outgoing.length){
+      h+='<tr>';
+      if(isActive&&!editMode) h+=`<td><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
+      h+=`<td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td></td>`;
+      if(editMode) h+=`<td style="white-space:nowrap">${actionHtml}</td>`;
+      h+='</tr>';
+    }
+  });
+  if(isActive){
+    const fixedCols=5;
+    h+='<tr class="total-row">';
+    if(!editMode) h+='<td></td>';
+    h+=`<td colspan="${fixedCols-1}"></td><td>合计</td>`;
+    pids.forEach(id=>{h+=`<td class="qty-cell">${tot[id]}</td>`;});
+    h+='<td></td><td></td>';
+    if(editMode) h+='<td></td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  w.innerHTML=h;
+}
+
+// ===== Actions =====
+async function markPickedUp(){
+  const ids=sel('incoming');if(!ids.length){showToast('请先勾选要取货的订单','error');return;}
+  if(!confirm(`确定将 ${ids.length} 个订单标记为已取货？`))return;
+  showLoading(true);
+  try{
+    for(const id of ids){
+      const o=orders.find(x=>x.id===id);if(!o)continue;
+      await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,picked_up:true})});
+    }
+    await loadOrders();showToast(`${ids.length} 个订单已标记为已取货`,'success');
+  }catch(e){showToast('操作失败: '+e.message,'error');}
+  showLoading(false);
+}
+async function markShipped(){
+  const ids=sel('shipping');if(!ids.length){showToast('请先勾选要标记的订单','error');return;}
+  if(!confirm(`确定将 ${ids.length} 个订单标记为已寄出？`))return;
+  showLoading(true);
+  try{
+    for(const id of ids){
+      const o=orders.find(x=>x.id===id);if(!o)continue;
+      await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,shipped:true})});
+    }
+    await loadOrders();showToast(`${ids.length} 个订单已标记为已寄出`,'success');
+  }catch(e){showToast('操作失败: '+e.message,'error');}
+  showLoading(false);
+}
+async function markUnpicked(id){
+  if(!confirm('确定将此订单改回未取货状态？'))return;
+  showLoading(true);
+  try{const o=orders.find(x=>x.id===id);if(o){await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,picked_up:false})});await loadOrders();showToast('已改回未取货','success');}}catch(e){showToast('操作失败: '+e.message,'error');}
+  showLoading(false);
+}
+async function markUnshipped(id){
+  if(!confirm('确定将此订单改回未寄出状态？'))return;
+  showLoading(true);
+  try{const o=orders.find(x=>x.id===id);if(o){await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,shipped:false})});await loadOrders();showToast('已改回未寄出','success');}}catch(e){showToast('操作失败: '+e.message,'error');}
+  showLoading(false);
+}
+
+// ===== Paid Status =====
+let pendingPaidId=null,pendingPaidCheckbox=null,pendingPaidValue=null;
+function promptPaidStatus(id,checkbox){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  const newVal=checkbox.checked;
+  pendingPaidId=id;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;
+  const codes=o.incoming.map(inc=>inc.express_code).join(', ');
+  const msg=newVal?`确认订单 <strong>${esc(codes)}</strong> 的运费已收？`:`确认取消订单 <strong>${esc(codes)}</strong> 的已付运费状态？`;
+  document.getElementById('paidConfirmMessage').innerHTML=msg;
+  const confirmBtn=document.querySelector('#paidConfirmModal .btn-success');
+  confirmBtn.textContent=newVal?'确认已收运费':'确认取消';
+  document.getElementById('paidConfirmModal').classList.add('active');
+}
+function cancelPaidConfirm(){
+  if(pendingPaidCheckbox)pendingPaidCheckbox.checked=!pendingPaidValue;
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;
+  closeModal('paidConfirmModal');
+}
+function doPaidConfirm(){
+  closeModal('paidConfirmModal');
+  if(pendingPaidId===null)return;
+  savePaidStatus(pendingPaidId,pendingPaidValue);
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;
+}
+async function savePaidStatus(id,val){
+  showLoading(true);
+  try{
+    const o=orders.find(x=>x.id===id);if(!o)return;
+    await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,paid_status:val})});
+    await loadOrders();showToast(val?'已标记为已付运费':'已标记为未付运费','success');
+  }catch(e){showToast('操作失败: '+e.message,'error');renderAll();}
+  showLoading(false);
+}
+
+// ===== Delete =====
+function confirmDelete(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  deleteOrderId=id;
+  const codes=o.incoming.map(inc=>inc.express_code).join(', ');
+  document.getElementById('deleteMessage').innerHTML=`确定要删除订单 <strong>${esc(codes)}</strong> 吗？此操作无法撤销。`;
+  document.getElementById('deleteModal').classList.add('active');
+}
+async function doDeleteOrder(){
+  closeModal('deleteModal');if(!deleteOrderId)return;
+  showLoading(true);
+  try{
+    await apiFetch(`/api/orders/${encodeURIComponent(deleteOrderId)}`,{method:'DELETE'});
+    await loadOrders();showToast('订单已删除','success');
+  }catch(e){showToast('删除失败: '+e.message,'error');}
+  deleteOrderId=null;showLoading(false);
+}
+
+// ===== Edit Overlay =====
+function productOpts(selectedId=''){return products.map(p=>{const s=p.id===selectedId?'selected':'';return`<option value="${esc(p.id)}" ${s}>${esc(p.product_name)}</option>`;}).join('');}
+
+function openEditOverlay(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  editingOrder=JSON.parse(JSON.stringify(o));
+  document.getElementById('eCreatedBy').value=o.created_by||'';
+  document.getElementById('eIncomingList').innerHTML='';
+  document.getElementById('eRecipientList').innerHTML='';
+  document.getElementById('eValidationBox').className='validation-box';
+  document.getElementById('eValidationBox').innerHTML='';
+  eRecipientCount=0;eIncomingBlockCount=0;
+  const incomingList=o.incoming||[];
+  if(incomingList.length) incomingList.forEach(inc=>addEIncomingBlock(inc));
+  else addEIncomingBlock();
+  const out=o.outgoing||[];
+  if(out.length) out.forEach(r=>addERecipient(r));
+  else addERecipient();
+  document.getElementById('editOverlay').classList.add('active');
+}
+function closeEditOverlay(){editingOrder=null;document.getElementById('editOverlay').classList.remove('active');}
+
+function addEIncomingBlock(data=null){
+  eIncomingBlockCount++;const n=eIncomingBlockCount;
+  const c=document.getElementById('eIncomingList');const d=document.createElement('div');
+  d.className='incoming-block';d.id=`eib-${n}`;
+  d.innerHTML=`<div class="incoming-block-header"><span>来件单 #${n}</span><button class="btn btn-danger btn-sm" onclick="document.getElementById('eib-${n}').remove()">删除</button></div>
+    <div class="form-row"><div class="form-group"><label>订单号</label><input type="text" class="eib-express" value="${esc(data?.express_code||'')}" placeholder="订单号"></div><div class="form-group"><label>取货码</label><input type="text" class="eib-pickup" value="${esc(data?.pickup_code||'')}" placeholder="取货码"></div></div>
+    <label style="font-size:0.8rem;color:var(--text-light);display:block;margin-bottom:4px;">来件产品</label><div class="eib-products"></div>
+    <button class="btn btn-outline btn-sm" onclick="addEIncomingProduct(${n})" style="margin-top:4px;">+ 添加产品</button>`;
+  c.appendChild(d);
+  if(data&&data.products&&data.products.length) data.products.forEach(p=>addEIncomingProduct(n,p.product_id,p.quantity));
+  else addEIncomingProduct(n);
+}
+function addEIncomingProduct(blockN,pid='',qty=''){
+  const block=document.getElementById(`eib-${blockN}`);if(!block)return;
+  const c=block.querySelector('.eib-products');const d=document.createElement('div');d.className='e-product-line';
+  d.innerHTML=`<select><option value="">请选择产品</option>${productOpts(pid)}</select><input type="number" min="1" value="${qty||''}" placeholder="数量" style="width:auto;flex:1;"><button onclick="this.parentElement.remove()">×</button>`;
+  c.appendChild(d);
+}
+function addERecipient(data=null){
+  eRecipientCount++;const n=eRecipientCount;const c=document.getElementById('eRecipientList');const d=document.createElement('div');
+  d.className='recipient-card';d.id=`ercp-${n}`;
+  d.innerHTML=`<div class="recipient-header"><span>收件人 #${n}</span><button class="btn btn-danger btn-sm" onclick="document.getElementById('ercp-${n}').remove()">删除</button></div>
+    <div class="form-row"><div class="form-group"><label>姓名</label><input type="text" class="r-name" value="${esc(data?.name||'')}"></div><div class="form-group"><label>电话</label><input type="text" class="r-phone" value="${esc(data?.phone||'')}"></div></div>
+    <div class="form-group" style="margin-bottom:12px;"><label>地址</label><input type="text" class="r-address" value="${esc(data?.address||'')}"></div>
+    <label style="font-size:0.8rem;color:var(--text-light);display:block;margin-bottom:4px;">产品</label><div class="r-products"></div>
+    <button class="btn btn-outline btn-sm" onclick="addERcpProduct(${n})" style="margin-top:4px;margin-bottom:8px;">+ 添加产品</button>
+    <div class="form-group"><label>备注</label><textarea class="r-notes">${esc(data?.notes||'')}</textarea></div>`;
+  c.appendChild(d);
+  if(data&&data.products&&data.products.length) data.products.forEach(p=>addERcpProduct(n,p.product_id,p.quantity));
+  else addERcpProduct(n);
+}
+function addERcpProduct(n,pid='',qty=''){
+  const card=document.getElementById(`ercp-${n}`);if(!card)return;
+  const c=card.querySelector('.r-products');const d=document.createElement('div');d.className='e-product-line';
+  d.innerHTML=`<select><option value="">请选择产品</option>${productOpts(pid)}</select><input type="number" min="1" value="${qty||''}" placeholder="数量" style="width:auto;flex:1;"><button onclick="this.parentElement.remove()">×</button>`;
+  c.appendChild(d);
+}
+
+function collectEditData(){
+  const createdBy=document.getElementById('eCreatedBy').value.trim();
+  if(!createdBy){showToast('请填写填表人称呼','error');return null;}
+  const incoming=[];
+  for(const block of document.querySelectorAll('#eIncomingList .incoming-block')){
+    const expressCode=block.querySelector('.eib-express').value.trim();
+    const pickupCode=block.querySelector('.eib-pickup').value.trim();
+    if(!expressCode||!pickupCode){showToast('请填写所有来件单的订单号和取货码','error');return null;}
+    const blockProducts=[];
+    block.querySelectorAll('.eib-products .e-product-line').forEach(l=>{
+      const s=l.querySelector('select');const q=parseInt(l.querySelector('input').value)||0;
+      if(s.value&&q>0){const prod=products.find(p=>p.id===s.value);blockProducts.push({product_id:s.value,product_name:prod?prod.product_name:s.value,quantity:q});}
+    });
+    if(!blockProducts.length){showToast('每张来件单至少需要一个产品','error');return null;}
+    incoming.push({express_code:expressCode,pickup_code:pickupCode,products:blockProducts});
+  }
+  if(!incoming.length){showToast('请至少添加一张来件单','error');return null;}
+  const outgoing=[];
+  document.querySelectorAll('#eRecipientList .recipient-card').forEach(card=>{
+    const name=card.querySelector('.r-name').value.trim();const phone=card.querySelector('.r-phone').value.trim();
+    const address=card.querySelector('.r-address').value.trim();const notes=card.querySelector('.r-notes').value.trim();
+    const rp=[];
+    card.querySelectorAll('.r-products .e-product-line').forEach(l=>{
+      const s=l.querySelector('select');const q=parseInt(l.querySelector('input').value)||0;
+      if(s.value&&q>0){const prod=products.find(p=>p.id===s.value);rp.push({product_id:s.value,product_name:prod?prod.product_name:s.value,quantity:q});}
+    });
+    if(name||phone||address||rp.length||notes) outgoing.push({name,phone,address,products:rp,notes});
+  });
+  return{...editingOrder,created_by:createdBy,incoming,outgoing};
+}
+
+function getEditQtyMismatches(){
+  const inc={},out={};
+  document.querySelectorAll('#eIncomingList .incoming-block').forEach(block=>{
+    block.querySelectorAll('.eib-products .e-product-line').forEach(l=>{
+      const id=l.querySelector('select').value;const q=parseInt(l.querySelector('input').value)||0;
+      if(id&&q>0)inc[id]=(inc[id]||0)+q;
+    });
+  });
+  document.querySelectorAll('#eRecipientList .r-products .e-product-line').forEach(l=>{const id=l.querySelector('select').value;const q=parseInt(l.querySelector('input').value)||0;if(id&&q>0)out[id]=(out[id]||0)+q;});
+  const all=new Set([...Object.keys(inc),...Object.keys(out)]);const mm=[];
+  for(const id of all){const i=inc[id]||0;const o=out[id]||0;if(i!==o)mm.push(`${pn(id)}: 来件 ${i}, 收件合计 ${o}`);}
+  return mm;
+}
+
+async function saveEditOrder(force=false){
+  const updated=collectEditData();if(!updated)return;
+  if(!force){
+    const mm=getEditQtyMismatches();
+    if(mm.length){
+      document.getElementById('eValidationBox').className='validation-box warn';
+      document.getElementById('eValidationBox').innerHTML='<strong>产品数量不匹配：</strong><br>'+mm.map(m=>esc(m)).join('<br>');
+      document.getElementById('qtyConfirmMessage').innerHTML=mm.map(m=>esc(m)).join('<br>')+'<br><br>是否仍然保存？';
+      document.getElementById('qtyConfirmModal').classList.add('active');return;
+    }
+  }
+  showLoading(true);
+  try{
+    await apiFetch(`/api/orders/${encodeURIComponent(editingOrder.id)}`,{method:'PUT',body:JSON.stringify(updated)});
+    await loadOrders();closeEditOverlay();showToast('订单修改成功','success');
+  }catch(e){showToast('修改失败: '+e.message,'error');}
+  showLoading(false);
+}
+function confirmQtyMismatch(){closeModal('qtyConfirmModal');saveEditOrder(true);}
+
+// ===== Export PDFs =====
+function exportIncomingPDF(){
+  const ids=sel('incoming');if(!ids.length){showToast('请先勾选要导出的订单','error');return;}
+  pendingExportIds=ids;document.getElementById('exportDate').value=new Date().toISOString().split('T')[0];document.getElementById('exportPerson').value='';
+  document.getElementById('exportModal').classList.add('active');
+}
+async function doExportIncomingPDF(){
+  const pickupDate=document.getElementById('exportDate').value;const pickupPerson=document.getElementById('exportPerson').value.trim();
+  if(!pickupDate||!pickupPerson){showToast('请填写提货日期和提货人','error');return;}
+  closeModal('exportModal');showLoading(true);
+  try{
+    const selected=orders.filter(o=>pendingExportIds.includes(o.id));
+    const pids=prodIdsIn(selected);const tot={};pids.forEach(id=>{tot[id]=0;});
+    const S='border:1px solid #555;padding:5px 8px;background:#eee;';
+    let rows='';
+    selected.forEach(o=>{
+      o.incoming.forEach((inc,ii)=>{
+        rows+=`<tr>`;
+        if(ii===0) rows+=`<td rowspan="${o.incoming.length}" style="border:1px solid #555;padding:5px 8px;vertical-align:middle">${esc(o.created_by||'')}</td>`;
+        rows+=`<td style="border:1px solid #555;padding:5px 8px;">${esc(inc.express_code)}</td>`;
+        rows+=`<td style="border:1px solid #555;padding:5px 8px;">${esc(inc.pickup_code)}</td>`;
+        pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="border:1px solid #555;padding:5px 8px;text-align:center">${q||''}</td>`;});
+        rows+=`</tr>`;
+      });
+    });
+    rows+=`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="border:1px solid #555;padding:5px 8px;text-align:right">合计</td>`;
+    pids.forEach(id=>{rows+=`<td style="border:1px solid #555;padding:5px 8px;text-align:center">${tot[id]}</td>`;});rows+=`</tr>`;
+    const ph=pids.map(id=>`<th style="text-align:center;${S}">${esc(id)}</th>`).join('');
+    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">来件提货单</h2><div style="margin-bottom:16px;font-size:13px;"><span style="margin-right:40px;">提货日期: ${esc(pickupDate)}</span><span>提货人: ${esc(pickupPerson)}</span></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="${S}">填表人</th><th style="${S}">订单号</th><th style="${S}">取货码</th>${ph}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const blob=await genPdf(html);
+    const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    showToast('取件单已生成','success');
+  }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
+  showLoading(false);
+}
+
+async function exportShippingPDF(){
+  const ids=sel('shipping');if(!ids.length){showToast('请先勾选要导出的订单','error');return;}
+  showLoading(true);
+  try{
+    const selected=orders.filter(o=>ids.includes(o.id));const pids=prodIdsOut(selected);const tot={};pids.forEach(id=>{tot[id]=0;});
+    const S='border:1px solid #555;padding:5px 8px;background:#eee;';
+    let rows='';
+    selected.forEach(o=>{o.outgoing.forEach(r=>{
+      rows+='<tr>';
+      rows+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
+      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="text-align:center">${q||''}</td>`;});
+      rows+=`<td style="font-size:11px">${esc(r.notes||'')}</td></tr>`;
+    });});
+    rows+='<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="text-align:right">合计</td>';
+    pids.forEach(id=>{rows+=`<td style="text-align:center">${tot[id]}</td>`;});rows+='<td></td></tr>';
+    const ph=pids.map(id=>`<th style="text-align:center;${S}">${esc(id)}</th>`).join('');
+    const today=new Date().toISOString().split('T')[0];
+    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">寄件单</h2><div style="margin-bottom:16px;font-size:13px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows.replace(/<td/g,'<td style="border:1px solid #555;padding:5px 8px;"')}</tbody></table></div>`;
+    const blob=await genPdf(html,'landscape');
+    const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    showToast('寄件单已生成','success');
+  }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
+  showLoading(false);
+}
+
+async function genPdf(html,orient='portrait'){
+  const rd=document.getElementById('pdfRender');rd.innerHTML=html;
+  const blob=await html2pdf().set({margin:10,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:orient}}).from(rd.firstElementChild).outputPdf('blob');
+  rd.innerHTML='';return blob;
+}
+
+// ===== History (local PDF only, no GitHub) =====
+let historyData=[];
+async function loadHistory(){historyData=[];renderHistoryList();}
+function renderHistoryList(){
+  const c=document.getElementById('historyList');
+  document.getElementById('historyCount').textContent='0 个档案';
+  c.innerHTML='<div class="empty-state">历史档案功能已移至本地下载，PDF 将直接在浏览器打开。</div>';
+}
+
+// ===== Products =====
+function genUid(){return'uid_'+Date.now()+'_'+Math.random().toString(36).substr(2,4);}
+async function loadProducts(){
+  const data=await apiFetch('/api/products');
+  products=data.map(p=>p._uid?p:{...p,_uid:genUid()});
+  renderProducts();
+}
+function syncProductsFromDOM(){
+  const rows=document.querySelectorAll('#productList .product-row');const synced=[];
+  for(const row of rows){
+    const idEl=row.querySelector('[data-field="id"]');if(!idEl)continue;
+    const uid=row.dataset.uid;const existing=products.find(p=>p._uid===uid)||{};
+    synced.push({_uid:uid||genUid(),id:idEl.value,product_name:row.querySelector('[data-field="product_name"]').value});
+  }
+  products=synced;
+}
+function renderProducts(){
+  const header='<div class="product-row" style="margin-bottom:4px;"><span style="flex:1;font-size:0.78rem;color:var(--text-light);padding-left:2px;">简称 (ID)</span><span style="flex:1;font-size:0.78rem;color:var(--text-light);padding-left:2px;">全称</span><span style="width:52px;"></span></div>';
+  document.getElementById('productList').innerHTML=header+products.map((p,i)=>{
+    const uid=esc(p._uid||'');
+    return`<div class="product-row" data-uid="${uid}"><input type="text" value="${esc(p.id)}" data-idx="${i}" data-field="id" placeholder="产品ID"><input type="text" value="${esc(p.product_name)}" data-idx="${i}" data-field="product_name" placeholder="产品名称"><button class="btn btn-danger" onclick="removeProduct(${i})">删除</button></div>`;
+  }).join('');
+}
+function addProductRow(){syncProductsFromDOM();products.push({_uid:genUid(),id:'p'+String(products.length+1).padStart(3,'0'),product_name:''});renderProducts();const inp=document.querySelectorAll('#productList input[data-field="product_name"]');if(inp.length)inp[inp.length-1].focus();}
+function removeProduct(i){syncProductsFromDOM();products.splice(i,1);renderProducts();}
+async function saveProducts(){
+  const oldList=products.map(p=>({...p}));
+  syncProductsFromDOM();
+  const rows=document.querySelectorAll('#productList .product-row');const newList=[];
+  for(const row of rows){
+    const idEl=row.querySelector('[data-field="id"]');if(!idEl)continue;
+    const id=idEl.value.trim();const nm=row.querySelector('[data-field="product_name"]').value.trim();const uid=row.dataset.uid;
+    if(!id||!nm){showToast('产品 ID 和名称不可为空','error');return;}
+    newList.push({_uid:uid||genUid(),id,product_name:nm});
+  }
+  if(!newList.length){showToast('至少保留一个产品','error');return;}
+  const idSet=new Set();
+  for(const p of newList){if(idSet.has(p.id)){showToast(`产品 ID "${p.id}" 重复，请修正后再保存`,'error');return;}idSet.add(p.id);}
+  const changeMap={};
+  for(const np of newList){
+    const op=oldList.find(p=>p._uid===np._uid);if(!op)continue;
+    if(op.id!==np.id||op.product_name!==np.product_name){changeMap[np._uid]={old_id:op.id,new_id:np.id,old_name:op.product_name,new_name:np.product_name};}
+  }
+  for(const uid in changeMap){
+    const ch=changeMap[uid];if(ch.old_id===ch.new_id)continue;
+    const conflict=oldList.find(p=>p.id===ch.new_id&&p._uid!==uid);
+    if(conflict){showToast(`产品 ID "${ch.new_id}" 与现有产品 "${conflict.product_name}" 冲突，无法保存`,'error');return;}
+  }
+  const hasChanges=Object.keys(changeMap).length>0;
+  showLoading(true);
+  try{
+    await apiFetch('/api/products',{method:'PUT',body:JSON.stringify({newList,changeMap:hasChanges?changeMap:{}})});
+    products=newList;renderProducts();
+    showToast(hasChanges?'产品列表已保存，订单已同步更新':'产品列表已保存','success');
+  }catch(e){showToast('保存失败: '+e.message,'error');}
+  showLoading(false);
+}
+
+// ===== Tabs =====
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  const i=TAB_NAMES.indexOf(name);if(i>=0)document.querySelectorAll('.tab')[i].classList.add('active');
+  if(name==='history')loadHistory();
+}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+function showToast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);}
+function showLoading(on){document.getElementById('loading').classList.toggle('active',on);}
+</script>
+</body>
+
+</html>

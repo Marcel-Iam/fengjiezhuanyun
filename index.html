@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凤姐转运</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg: #f5f0eb;
+    --card: #ffffff;
+    --border: #d4cdc4;
+    --text: #2c2825;
+    --text-light: #7a7269;
+    --accent: #b8860b;
+    --accent-hover: #9a7209;
+    --danger: #c0392b;
+    --success: #27ae60;
+    --input-bg: #faf8f5;
+    --warn-bg: #fff3cd;
+    --warn-border: #e6c34d;
+    --warn-text: #856404;
+  }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-weight: 500;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--text-light);
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+  }
+
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .collapse-toggle {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    cursor: pointer;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .collapse-toggle:hover {
+    border-color: var(--accent);
+  }
+
+  .collapse-arrow {
+    transition: transform 0.2s;
+  }
+
+  .collapse-toggle.active .collapse-arrow {
+    transform: rotate(180deg);
+  }
+
+  .collapse-box {
+    display: none;
+  }
+
+  .collapse-box.open {
+    display: block;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-family: 'Noto Sans SC', sans-serif;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: var(--input-bg);
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 50px;
+  }
+
+  .product-line {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .product-line select {
+    flex: 3;
+    min-width: 0;
+  }
+
+  .product-line input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn {
+    font-family: 'Noto Sans SC', sans-serif;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+
+  .btn-small {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-accent:hover {
+    background: var(--accent-hover);
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-light);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+  }
+
+  .btn-danger:hover {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .btn-submit {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    margin-top: 8px;
+  }
+
+  .recipient-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: var(--input-bg);
+  }
+
+  .recipient-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .recipient-header span {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  .add-recipient-btn {
+    width: 100%;
+    padding: 10px;
+    border: 2px dashed var(--border);
+    background: transparent;
+    border-radius: 6px;
+    color: var(--text-light);
+    cursor: pointer;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .add-recipient-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .remove-product-btn {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px 8px;
+    line-height: 1;
+  }
+
+  .validation-box {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .validation-box.warn {
+    display: block;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+  }
+
+  .edit-hint {
+    display: none;
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-top: 8px;
+  }
+
+  .button-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .button-row .btn-submit {
+    flex: 1;
+  }
+
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.9rem;
+    z-index: 999;
+    display: none;
+    animation: slideIn 0.3s ease;
+  }
+
+  .toast.success {
+    background: var(--success);
+  }
+
+  .toast.error {
+    background: var(--danger);
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 998;
+  }
+
+  .loading-overlay.active {
+    display: flex;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #fff;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.42);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+
+  .confirm-overlay.active {
+    display: flex;
+  }
+
+  .confirm-box {
+    width: 100%;
+    max-width: 430px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 22px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+  }
+
+  .confirm-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--danger);
+  }
+
+  .confirm-message {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .confirm-actions .btn {
+    flex: 1;
+    padding: 10px;
+  }
+
+  @media (max-width: 700px) {
+    body {
+      padding: 12px;
+    }
+
+    .section {
+      padding: 16px;
+    }
+
+    .form-row {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .product-line {
+      align-items: center;
+    }
+
+    .button-row,
+    .confirm-actions {
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+
+  .new-order-section {
+    border: 2px solid var(--accent);
+  }
+
+  .new-order-title {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .incoming-block {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: var(--input-bg);
+  }
+
+  .incoming-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .incoming-block-header span {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+
+  /* ── AI 聊天窗口 ── */
+  .chat-toggle-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .chat-toggle-btn:hover { background: var(--accent-hover); }
+
+  .chat-window {
+    position: fixed;
+    bottom: 88px;
+    right: 24px;
+    width: 340px;
+    max-height: 480px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    z-index: 900;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-window.open { display: flex; }
+
+  .chat-header {
+    padding: 12px 16px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chat-header button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 200px;
+  }
+
+  .chat-msg {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    max-width: 90%;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .chat-msg.user {
+    background: var(--accent);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+  }
+  .chat-msg.bot {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+  }
+  .chat-msg.error {
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    color: var(--danger);
+    align-self: flex-start;
+  }
+
+  .chat-confirm-btn {
+    display: block;
+    margin-top: 8px;
+    padding: 6px 14px;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .chat-confirm-btn:hover { opacity: 0.88; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input-row textarea {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    resize: none;
+    background: var(--input-bg);
+    color: var(--text);
+    height: 60px;
+  }
+  .chat-input-row textarea:focus { outline: none; border-color: var(--accent); }
+  .chat-send-btn {
+    padding: 0 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: flex-end;
+    height: 36px;
+  }
+  .chat-send-btn:hover { background: var(--accent-hover); }
+  .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  @media (max-width: 400px) {
+    .chat-window { width: calc(100vw - 32px); right: 16px; }
+    .chat-toggle-btn { right: 16px; }
+  }
+
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>凤姐转运</h1>
+
+  <button id="editCollapseBtn" class="collapse-toggle" onclick="toggleEditBox()">
+    <span>查找 / 修改已提交订单</span>
+    <span class="collapse-arrow">▼</span>
+  </button>
+
+  <div id="editCollapseBox" class="collapse-box">
+    <div class="section">
+      <div class="section-title">查找 / 修改已提交订单</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>订单号（任意一个来件单号均可）</label>
+          <input type="text" id="searchExpressCode" placeholder="输入订单号搜寻">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-accent" onclick="searchOrderForEdit()">搜寻</button>
+        </div>
+      </div>
+      <div id="editModeHint" class="edit-hint">
+        当前正在修改订单资料。修改完成后，请点击页面底部的"发送修改"。
+      </div>
+    </div>
+  </div>
+
+  <div class="section new-order-section">
+    <div class="section-title new-order-title">提交新订单</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>填表人称呼</label>
+        <input type="text" id="createdBy" placeholder="例如：小陈、阿明">
+      </div>
+    </div>
+
+    <label style="font-size:0.8rem;color:var(--text-light);margin-bottom:8px;display:block;">来件信息</label>
+    <div id="incomingList"></div>
+    <button class="btn btn-outline btn-small" onclick="addIncomingBlock()" style="margin-top:4px;">
+      + 添加来件单
+    </button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">收件人信息</div>
+    <div id="recipientList"></div>
+    <button class="add-recipient-btn" onclick="addRecipient()">
+      + 添加收件人
+    </button>
+  </div>
+  <!-- AI 聊天窗口 -->
+  <button class="chat-toggle-btn" onclick="toggleChat()" title="AI 智能填单">💬</button>
+
+  <div class="chat-window" id="chatWindow">
+    <div class="chat-header">
+      <span>AI 智能填单</span>
+      <button onclick="toggleChat()">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg bot">你好！请把订单信息粘贴进来，我帮你自动填写表单。</div>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" placeholder="粘贴订单信息…" onkeydown="chatKeyDown(event)"></textarea>
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">发送</button>
+    </div>
+  </div>
+
+
+  <div id="validationBox" class="validation-box"></div>
+
+  <button id="submitBtn" class="btn btn-accent btn-submit" onclick="submitOrder()">
+    提交订单
+  </button>
+
+  <div id="editButtons" class="button-row" style="display:none;">
+    <button class="btn btn-accent btn-submit" onclick="updateOrder()">
+      发送修改
+    </button>
+
+    <button class="btn btn-outline btn-submit" onclick="cancelEditMode()">
+      取消修改
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+</div>
+
+<div class="confirm-overlay" id="quantityConfirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">产品数量不匹配</div>
+    <div id="quantityConfirmMessage" class="confirm-message"></div>
+
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="cancelQuantityConfirm()">
+        取消，返回修改
+      </button>
+
+      <button class="btn btn-accent" onclick="confirmQuantityMismatchSubmit()">
+        仍然提交
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 配置区域
+// ============================================================
+
+const CONFIG = {
+  workerUrl: 'https://fengjiezhuanyun.yamhl12.workers.dev',
+  adminToken: '', // index.html 不需要 token，提交订单是公开端点
+};
+
+const API = CONFIG.workerUrl;
+
+let products = [];
+let recipientCount = 0;
+let incomingBlockCount = 0;
+let editingOrderId = null;
+let editingExpressCode = null;
+let pendingSubmitAction = null;
+let pendingExistingOrder = null;
+
+// -----------------------------
+// 初始化
+// -----------------------------
+
+async function init() {
+  try {
+    const res = await fetch(`${API}/api/products`, {
+      headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` }
+    });
+    // products is a public-ish read — but we'll try without token first
+    // actually products needs token, use empty token for now
+    if (res.ok) {
+      products = await res.json();
+    }
+  } catch (e) {
+    // silently fail, dropdowns will be empty
+  }
+  resetForm();
+}
+
+// -----------------------------
+// API 调用
+// -----------------------------
+
+async function apiGet(path) {
+  const res = await fetch(`${API}${path}`, {
+    headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` }
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${CONFIG.adminToken}`
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `API error ${res.status}`);
+  }
+  return res.json();
+}
+
+async function apiPut(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${CONFIG.adminToken}`
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `API error ${res.status}`);
+  }
+  return res.json();
+}
+
+// -----------------------------
+// HTML 工具
+// -----------------------------
+
+function esc(v = '') {
+  return String(v).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function productOptions(selectedId = '') {
+  return products.map(p => {
+    const selected = p.id === selectedId ? 'selected' : '';
+    return `<option value="${esc(p.id)}" ${selected}>${esc(p.product_name)}</option>`;
+  }).join('');
+}
+
+// -----------------------------
+// 折叠查找/修改区域
+// -----------------------------
+
+function toggleEditBox() {
+  const btn = document.getElementById('editCollapseBtn');
+  const box = document.getElementById('editCollapseBox');
+  btn.classList.toggle('active');
+  box.classList.toggle('open');
+}
+
+// -----------------------------
+// 来件单 Block
+// -----------------------------
+
+function addIncomingBlock(data = null) {
+  incomingBlockCount++;
+  const n = incomingBlockCount;
+  const c = document.getElementById('incomingList');
+  const d = document.createElement('div');
+  d.className = 'incoming-block';
+  d.id = `incoming-block-${n}`;
+  d.innerHTML = `
+    <div class="incoming-block-header">
+      <span>来件单 #${n}</span>
+      <button class="btn btn-danger btn-small" onclick="removeIncomingBlock(${n})">删除</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>订单号</label>
+        <input type="text" class="ib-express" placeholder="输入订单号" value="${esc(data?.express_code || '')}">
+      </div>
+      <div class="form-group">
+        <label>取货码</label>
+        <input type="text" class="ib-pickup" placeholder="输入取货码" value="${esc(data?.pickup_code || '')}">
+      </div>
+    </div>
+    <label style="font-size:0.8rem;color:var(--text-light);margin-bottom:4px;display:block;">来件产品</label>
+    <div class="ib-products"></div>
+    <button class="btn btn-outline btn-small" onclick="addIncomingProduct(${n})" style="margin-top:4px;">
+      + 添加产品
+    </button>
+  `;
+  c.appendChild(d);
+  if (data && Array.isArray(data.products) && data.products.length > 0) {
+    data.products.forEach(p => addIncomingProduct(n, p.product_id, p.quantity));
+  } else {
+    addIncomingProduct(n);
+  }
+}
+
+function removeIncomingBlock(n) {
+  const el = document.getElementById(`incoming-block-${n}`);
+  if (el) el.remove();
+}
+
+function addIncomingProduct(blockN, productId = '', quantity = '') {
+  const block = document.getElementById(`incoming-block-${blockN}`);
+  if (!block) return;
+  const c = block.querySelector('.ib-products');
+  const d = document.createElement('div');
+  d.className = 'product-line';
+  d.innerHTML = `
+    <select>
+      <option value="">请选择产品</option>
+      ${productOptions(productId)}
+    </select>
+    <input type="number" min="1" value="${quantity || ''}" placeholder="数量">
+    <button class="remove-product-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  c.appendChild(d);
+}
+
+// -----------------------------
+// 收件人
+// -----------------------------
+
+function addRecipient(data = null) {
+  recipientCount++;
+  const n = recipientCount;
+  const c = document.getElementById('recipientList');
+  const d = document.createElement('div');
+  d.className = 'recipient-card';
+  d.id = `recipient-${n}`;
+  d.innerHTML = `
+    <div class="recipient-header">
+      <span>收件人 #${n}</span>
+      <button class="btn btn-danger btn-small" onclick="removeRecipient(${n})">删除</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>姓名</label>
+        <input type="text" class="r-name" placeholder="收件人姓名" value="${esc(data?.name || '')}">
+      </div>
+      <div class="form-group">
+        <label>联系电话</label>
+        <input type="text" class="r-phone" placeholder="电话号码" value="${esc(data?.phone || '')}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>地址</label>
+      <input type="text" class="r-address" placeholder="收件地址" value="${esc(data?.address || '')}">
+    </div>
+    <label>产品</label>
+    <div class="r-products"></div>
+    <button class="btn btn-outline btn-small" onclick="addRecipientProduct(${n})" style="margin-top:4px;margin-bottom:8px;">
+      + 添加产品
+    </button>
+    <div class="form-group">
+      <label>备注</label>
+      <textarea class="r-notes" placeholder="备注（选填）">${esc(data?.notes || '')}</textarea>
+    </div>
+  `;
+  c.appendChild(d);
+  if (data && Array.isArray(data.products) && data.products.length > 0) {
+    data.products.forEach(p => addRecipientProduct(n, p.product_id, p.quantity));
+  } else {
+    addRecipientProduct(n);
+  }
+}
+
+function removeRecipient(n) {
+  const el = document.getElementById(`recipient-${n}`);
+  if (el) el.remove();
+}
+
+function addRecipientProduct(n, productId = '', quantity = '') {
+  const card = document.getElementById(`recipient-${n}`);
+  if (!card) return;
+  const c = card.querySelector('.r-products');
+  const d = document.createElement('div');
+  d.className = 'product-line';
+  d.innerHTML = `
+    <select>
+      <option value="">请选择产品</option>
+      ${productOptions(productId)}
+    </select>
+    <input type="number" min="1" value="${quantity || ''}" placeholder="数量">
+    <button class="remove-product-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  c.appendChild(d);
+}
+
+function resetForm() {
+  document.getElementById('createdBy').value = '';
+  document.getElementById('incomingList').innerHTML = '';
+  document.getElementById('recipientList').innerHTML = '';
+  clearValidation();
+  incomingBlockCount = 0;
+  recipientCount = 0;
+  addIncomingBlock();
+  addRecipient();
+}
+
+// -----------------------------
+// 数量校验
+// -----------------------------
+
+function getIncomingTotals() {
+  const t = {};
+  document.querySelectorAll('.incoming-block .ib-products .product-line').forEach(l => {
+    const id = l.querySelector('select').value;
+    const q = parseInt(l.querySelector('input').value) || 0;
+    if (id && q > 0) t[id] = (t[id] || 0) + q;
+  });
+  return t;
+}
+
+function getOutgoingTotals() {
+  const t = {};
+  document.querySelectorAll('.recipient-card .r-products .product-line').forEach(l => {
+    const id = l.querySelector('select').value;
+    const q = parseInt(l.querySelector('input').value) || 0;
+    if (id && q > 0) t[id] = (t[id] || 0) + q;
+  });
+  return t;
+}
+
+function getQuantityMismatches() {
+  const inc = getIncomingTotals();
+  const out = getOutgoingTotals();
+  const allIds = new Set([...Object.keys(inc), ...Object.keys(out)]);
+  const mismatches = [];
+  for (const id of allIds) {
+    const iq = inc[id] || 0, oq = out[id] || 0;
+    if (iq !== oq) {
+      const name = products.find(p => p.id === id)?.product_name || id;
+      mismatches.push(`${name}: 来件 ${iq}, 收件合计 ${oq}`);
+    }
+  }
+  return mismatches;
+}
+
+function showQuantityMismatchConfirm(mismatches, action, existingOrder = null) {
+  pendingSubmitAction = action;
+  pendingExistingOrder = existingOrder;
+  const msg = document.getElementById('quantityConfirmMessage');
+  msg.innerHTML = `以下产品数量不匹配：<br><br>${mismatches.map(m => esc(m)).join('<br>')}<br><br>是否仍然继续提交？`;
+  document.getElementById('quantityConfirmOverlay').classList.add('active');
+}
+
+function cancelQuantityConfirm() {
+  pendingSubmitAction = null;
+  pendingExistingOrder = null;
+  document.getElementById('quantityConfirmOverlay').classList.remove('active');
+}
+
+async function confirmQuantityMismatchSubmit() {
+  const action = pendingSubmitAction;
+  const existingOrder = pendingExistingOrder;
+  document.getElementById('quantityConfirmOverlay').classList.remove('active');
+  pendingSubmitAction = null;
+  pendingExistingOrder = null;
+  if (action === 'create') await reallySubmitOrder(true);
+  if (action === 'update') await reallyUpdateOrder(existingOrder, true);
+}
+
+function clearValidation() {
+  const box = document.getElementById('validationBox');
+  box.className = 'validation-box';
+  box.innerHTML = '';
+}
+
+function showValidationWarning(mismatches) {
+  const box = document.getElementById('validationBox');
+  box.className = 'validation-box warn';
+  box.innerHTML = '<strong>产品数量不匹配：</strong><br>' + mismatches.map(m => esc(m)).join('<br>');
+}
+
+// -----------------------------
+// 收集表单数据
+// -----------------------------
+
+function collectOrderData(existingOrder = null) {
+  clearValidation();
+  const createdBy = document.getElementById('createdBy').value.trim();
+  if (!createdBy) { showToast('请填写填表人称呼', 'error'); return null; }
+
+  const incoming = [];
+  for (const block of document.querySelectorAll('.incoming-block')) {
+    const expressCode = block.querySelector('.ib-express').value.trim();
+    const pickupCode  = block.querySelector('.ib-pickup').value.trim();
+    if (!expressCode || !pickupCode) { showToast('请填写所有来件单的订单号和取货码', 'error'); return null; }
+    const blockProducts = [];
+    block.querySelectorAll('.ib-products .product-line').forEach(l => {
+      const sel = l.querySelector('select');
+      const q = parseInt(l.querySelector('input').value) || 0;
+      if (sel.value && q > 0) {
+        const prod = products.find(p => p.id === sel.value);
+        blockProducts.push({ product_id: sel.value, product_name: prod ? prod.product_name : sel.value, quantity: q });
+      }
+    });
+    if (!blockProducts.length) { showToast('每张来件单至少需要一个产品', 'error'); return null; }
+    incoming.push({ express_code: expressCode, pickup_code: pickupCode, products: blockProducts });
+  }
+  if (!incoming.length) { showToast('请至少添加一张来件单', 'error'); return null; }
+
+  const outgoing = [];
+  for (const card of document.querySelectorAll('.recipient-card')) {
+    const name = card.querySelector('.r-name').value.trim();
+    const phone = card.querySelector('.r-phone').value.trim();
+    const address = card.querySelector('.r-address').value.trim();
+    const notes = card.querySelector('.r-notes').value.trim();
+    const rp = [];
+    card.querySelectorAll('.r-products .product-line').forEach(l => {
+      const sel = l.querySelector('select');
+      const q = parseInt(l.querySelector('input').value) || 0;
+      if (sel.value && q > 0) {
+        const prod = products.find(p => p.id === sel.value);
+        rp.push({ product_id: sel.value, product_name: prod ? prod.product_name : sel.value, quantity: q });
+      }
+    });
+    if (!name && !phone && !address && !rp.length && !notes) continue;
+    outgoing.push({ name, phone, address, products: rp, notes });
+  }
+
+  const base = existingOrder || {};
+  return {
+    ...base,
+    id: base.id || 'ORD_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    created_at: base.created_at || new Date().toISOString(),
+    created_by: createdBy,
+    paid_status: base.paid_status ?? false,
+    picked_up: base.picked_up ?? false,
+    shipped: base.shipped ?? false,
+    source: base.source || 'manual',
+    incoming,
+    outgoing
+  };
+}
+
+// -----------------------------
+// 提交订单
+// -----------------------------
+
+async function submitOrder() {
+  const draftOrder = collectOrderData(null);
+  if (!draftOrder) return;
+  const mismatches = getQuantityMismatches();
+  if (mismatches.length > 0) {
+    showValidationWarning(mismatches);
+    showQuantityMismatchConfirm(mismatches, 'create');
+    return;
+  }
+  await reallySubmitOrder(false);
+}
+
+async function reallySubmitOrder(skipCheck = false) {
+  const order = collectOrderData(null);
+  if (!order) return;
+  if (!skipCheck) {
+    const mismatches = getQuantityMismatches();
+    if (mismatches.length > 0) { showValidationWarning(mismatches); showQuantityMismatchConfirm(mismatches, 'create'); return; }
+  }
+  showLoading(true);
+  try {
+    await apiPost('/api/orders', order);
+    showToast('订单提交成功！', 'success');
+    resetForm();
+  } catch (e) {
+    showToast('提交失败: ' + e.message, 'error');
+  }
+  showLoading(false);
+}
+
+// -----------------------------
+// 修改订单
+// -----------------------------
+
+async function searchOrderForEdit() {
+  const code = document.getElementById('searchExpressCode').value.trim();
+  if (!code) { showToast('请输入要修改的订单号', 'error'); return; }
+  showLoading(true);
+  try {
+    const orders = await apiGet('/api/orders');
+    const order = orders.find(o =>
+      o.id === code || o.incoming.some(inc => inc.express_code === code)
+    );
+    if (!order) { showToast('找不到这个订单号', 'error'); showLoading(false); return; }
+    editingOrderId = order.id;
+    editingExpressCode = order.incoming[0]?.express_code || '';
+    fillFormWithOrder(order);
+    enterEditMode();
+    showToast('订单资料已载入，可以开始修改', 'success');
+  } catch (e) {
+    showToast('搜寻失败: ' + e.message, 'error');
+  }
+  showLoading(false);
+}
+
+function fillFormWithOrder(order) {
+  document.getElementById('createdBy').value = order.created_by || '';
+  document.getElementById('incomingList').innerHTML = '';
+  document.getElementById('recipientList').innerHTML = '';
+  clearValidation();
+  incomingBlockCount = 0;
+  recipientCount = 0;
+  const incomingList = order.incoming || [];
+  if (incomingList.length > 0) incomingList.forEach(inc => addIncomingBlock(inc));
+  else addIncomingBlock();
+  const outgoing = order.outgoing || [];
+  if (outgoing.length > 0) outgoing.forEach(r => addRecipient(r));
+  else addRecipient();
+}
+
+function enterEditMode() {
+  const btn = document.getElementById('editCollapseBtn');
+  const box = document.getElementById('editCollapseBox');
+  btn.classList.add('active');
+  box.classList.add('open');
+  document.getElementById('submitBtn').style.display = 'none';
+  document.getElementById('editButtons').style.display = 'flex';
+  document.getElementById('editModeHint').style.display = 'block';
+}
+
+function cancelEditMode() {
+  editingOrderId = null;
+  editingExpressCode = null;
+  document.getElementById('searchExpressCode').value = '';
+  document.getElementById('submitBtn').style.display = 'block';
+  document.getElementById('editButtons').style.display = 'none';
+  document.getElementById('editModeHint').style.display = 'none';
+  resetForm();
+}
+
+async function updateOrder() {
+  if (!editingOrderId && !editingExpressCode) { showToast('请先搜寻要修改的订单', 'error'); return; }
+  showLoading(true);
+  try {
+    const orders = await apiGet('/api/orders');
+    const existingOrder = orders.find(o =>
+      o.id === editingOrderId || o.incoming.some(inc => inc.express_code === editingExpressCode)
+    );
+    showLoading(false);
+    if (!existingOrder) { showToast('找不到原订单，无法修改', 'error'); return; }
+    const draftOrder = collectOrderData(existingOrder);
+    if (!draftOrder) return;
+    const mismatches = getQuantityMismatches();
+    if (mismatches.length > 0) {
+      showValidationWarning(mismatches);
+      showQuantityMismatchConfirm(mismatches, 'update', existingOrder);
+      return;
+    }
+    await reallyUpdateOrder(existingOrder, false);
+  } catch (e) {
+    showLoading(false);
+    showToast('修改失败: ' + e.message, 'error');
+  }
+}
+
+async function reallyUpdateOrder(existingOrder, skipCheck = false) {
+  const updatedOrder = collectOrderData(existingOrder);
+  if (!updatedOrder) return;
+  if (!skipCheck) {
+    const mismatches = getQuantityMismatches();
+    if (mismatches.length > 0) { showValidationWarning(mismatches); showQuantityMismatchConfirm(mismatches, 'update', existingOrder); return; }
+  }
+  showLoading(true);
+  try {
+    await apiPut(`/api/orders/${encodeURIComponent(updatedOrder.id)}`, updatedOrder);
+    showToast('订单修改成功！', 'success');
+    cancelEditMode();
+  } catch (e) {
+    showToast('修改失败: ' + e.message, 'error');
+  }
+  showLoading(false);
+}
+
+// -----------------------------
+// AI 聊天窗口
+// -----------------------------
+
+function toggleChat() {
+  const w = document.getElementById('chatWindow');
+  w.classList.toggle('open');
+}
+
+function chatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+}
+
+function addChatMsg(text, type) {
+  const c = document.getElementById('chatMessages');
+  const d = document.createElement('div');
+  d.className = `chat-msg ${type}`;
+  d.textContent = text;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function addChatMsgHtml(html, type) {
+  const c = document.getElementById('chatMessages');
+  const d = document.createElement('div');
+  d.className = `chat-msg ${type}`;
+  d.innerHTML = html;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const btn   = document.getElementById('chatSendBtn');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  btn.disabled = true;
+  addChatMsg(text, 'user');
+
+  const loadingMsg = addChatMsg('正在解析…', 'bot');
+
+  try {
+    const res = await fetch(`${API}/api/parse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    loadingMsg.remove();
+
+    if (!data.valid) {
+      addChatMsg(data.error_reply || '无法识别订单信息，请补充完整后重试。', 'error');
+      btn.disabled = false;
+      return;
+    }
+
+    // Show preview
+    const preview = buildPreview(data);
+    const msgEl = addChatMsgHtml(
+      preview + `<button class="chat-confirm-btn" onclick="applyParsedOrder(this)">✅ 确认填入表单</button>`,
+      'bot'
+    );
+    msgEl._parsedData = data;
+
+  } catch (e) {
+    loadingMsg.remove();
+    addChatMsg('解析失败，请稍后再试。', 'error');
+  }
+
+  btn.disabled = false;
+}
+
+function buildPreview(data) {
+  const lines = [];
+  if (data.created_by) lines.push(`填表人：${esc(data.created_by)}`);
+  (data.incoming || []).forEach((inc, i) => {
+    lines.push(`
+来件单 ${i + 1}：${esc(inc.express_code)}（取货码：${esc(inc.pickup_code)}）`);
+    (inc.products || []).forEach(p => lines.push(`  ${esc(p.product_name)} × ${p.quantity}`));
+  });
+  (data.outgoing || []).forEach((r, i) => {
+    lines.push(`
+收件人 ${i + 1}：${esc(r.name)}  ${esc(r.phone)}`);
+    lines.push(`  ${esc(r.address)}`);
+    (r.products || []).forEach(p => lines.push(`  ${esc(p.product_name)} × ${p.quantity}`));
+    if (r.notes) lines.push(`  备注：${esc(r.notes)}`);
+  });
+  return `<strong>解析结果：</strong><br>${lines.join('<br>')}`;
+}
+
+function applyParsedOrder(btn) {
+  const msgEl = btn.closest('.chat-msg');
+  const data  = msgEl._parsedData;
+  if (!data) return;
+
+  // Fill form
+  if (data.created_by) document.getElementById('createdBy').value = data.created_by;
+
+  document.getElementById('incomingList').innerHTML = '';
+  incomingBlockCount = 0;
+  (data.incoming || []).forEach(inc => addIncomingBlock(inc));
+  if (!data.incoming || !data.incoming.length) addIncomingBlock();
+
+  document.getElementById('recipientList').innerHTML = '';
+  recipientCount = 0;
+  (data.outgoing || []).forEach(r => addRecipient(r));
+  if (!data.outgoing || !data.outgoing.length) addRecipient();
+
+  btn.textContent = '✅ 已填入表单';
+  btn.disabled = true;
+
+  // Close chat and scroll to form
+  document.getElementById('chatWindow').classList.remove('open');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('订单信息已填入，请检查后提交', 'success');
+}
+
+// -----------------------------
+// UI 提示
+// -----------------------------
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function showLoading(on) {
+  document.getElementById('loading').classList.toggle('active', on);
+}
+
+init();
+</script>
+</body>
+</html>
