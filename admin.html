@@ -54,6 +54,11 @@
   .data-table tr:hover td{background:#faf8f5;}
   .data-table input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
   .table-wrap{overflow-x:auto;}
+  @media (max-width: 768px) {
+    .data-table td:last-child, .data-table th:last-child { position: sticky; right: 0; background: var(--card); z-index: 2; box-shadow: -2px 0 4px rgba(0,0,0,0.06); }
+    .data-table tr:hover td:last-child { background: #faf8f5; }
+    .data-table .total-row td:last-child { background: var(--input-bg); }
+  }
   .qty-cell{text-align:center;font-variant-numeric:tabular-nums;}
   .total-row td{font-weight:600;background:var(--input-bg);border-top:2px solid var(--border);}
   .product-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
@@ -195,6 +200,20 @@
 
 <!-- 导出来件提货单弹窗 -->
 <div class="modal-overlay" id="exportModal"><div class="modal"><h3>生成取件单</h3><div class="form-group"><label>提货日期</label><input type="date" id="exportDate"></div><div class="form-group"><label>提货人</label><input type="text" id="exportPerson" placeholder="提货人姓名"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('exportModal')">取消</button><button class="btn btn-accent" onclick="doExportIncomingPDF()">生成</button></div></div></div>
+
+<!-- 合并收件人弹窗 -->
+<div class="modal-overlay" id="mergeModal">
+  <div class="confirm-box" style="max-width:480px;">
+    <div class="confirm-title" style="color:var(--accent);">发现重复收件人</div>
+    <div id="mergeModalMsg" class="confirm-message" style="white-space:pre-line;"></div>
+    <select id="mergeAddrSel" style="width:100%;margin-bottom:12px;display:none;"></select>
+    <input type="hidden" id="mergeName"><input type="hidden" id="mergeIdx"><input type="hidden" id="mergeAddrs">
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="doMergeNo()">不合并</button>
+      <button class="btn btn-accent" onclick="doMergeYes()">合并</button>
+    </div>
+  </div>
+</div>
 
 <!-- 删除确认弹窗 -->
 <div class="modal-overlay" id="deleteModal"><div class="confirm-box"><div class="confirm-title">确认删除</div><div id="deleteMessage" class="confirm-message"></div><div class="confirm-actions"><button class="btn btn-outline" onclick="closeModal('deleteModal')">取消</button><button class="btn btn-danger" onclick="doDeleteOrder()">删除</button></div></div></div>
@@ -657,6 +676,8 @@ async function doExportIncomingPDF(){
     const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">来件提货单</h2><div style="margin-bottom:16px;font-size:13px;"><span style="margin-right:40px;">提货日期: ${esc(pickupDate)}</span><span>提货人: ${esc(pickupPerson)}</span></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="${S}">填表人</th><th style="${S}">订单号</th><th style="${S}">取货码</th>${ph}</tr></thead><tbody>${rows}</tbody></table></div>`;
     const blob=await genPdf(html);
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    const fname=`取件单_${pickupDate}_${pickupPerson}.pdf`;
+    await uploadPdfToR2(blob, fname);
     showToast('取件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
@@ -664,17 +685,103 @@ async function doExportIncomingPDF(){
 
 async function exportShippingPDF(){
   const ids=sel('shipping');if(!ids.length){showToast('请先勾选要导出的订单','error');return;}
+  // Collect all recipients from selected orders
+  const selected=orders.filter(o=>ids.includes(o.id));
+  let allRecipients=[];
+  selected.forEach(o=>{o.outgoing.forEach(r=>{allRecipients.push({...r,_orderId:o.id});});});
+  // Check for duplicate names
+  const nameGroups={};
+  allRecipients.forEach(r=>{const n=r.name.trim();if(!nameGroups[n])nameGroups[n]=[];nameGroups[n].push(r);});
+  const dupNames=Object.keys(nameGroups).filter(n=>nameGroups[n].length>1);
+  if(dupNames.length>0){
+    // Show merge prompt
+    pendingShippingRecipients=allRecipients;
+    pendingShippingDups=dupNames;
+    pendingShippingMergeAnswers={};
+    showMergePrompt(dupNames,0);
+    return;
+  }
+  doExportShippingPDF(allRecipients);
+}
+
+let pendingShippingRecipients=[];let pendingShippingDups=[];let pendingShippingMergeAnswers={};
+function showMergePrompt(dupNames,idx){
+  if(idx>=dupNames.length){
+    // Apply merges
+    let recipients=[...pendingShippingRecipients];
+    dupNames.forEach(name=>{
+      const ans=pendingShippingMergeAnswers[name];
+      if(!ans)return;
+      const group=recipients.filter(r=>r.name.trim()===name);
+      const others=recipients.filter(r=>r.name.trim()!==name);
+      // Merge products
+      const merged={...group[0],address:ans.address,products:[]};
+      const prodMap={};
+      group.forEach(r=>r.products.forEach(p=>{if(!prodMap[p.product_id])prodMap[p.product_id]={...p,quantity:0};prodMap[p.product_id].quantity+=p.quantity;}));
+      merged.products=Object.values(prodMap);
+      recipients=[...others,merged];
+    });
+    doExportShippingPDF(recipients);
+    return;
+  }
+  const name=dupNames[idx];
+  const group=pendingShippingRecipients.filter(r=>r.name.trim()===name);
+  const addrs=[...new Set(group.map(r=>r.address.trim()))];
+  let msg=`发现收件人「${name}」出现 ${group.length} 次，是否合并为一行？`;
+  if(addrs.length>1)msg+=`
+
+该收件人有 ${addrs.length} 个不同地址：
+`+addrs.map((a,i)=>`${i+1}. ${a}`).join('
+')+'
+
+请选择使用哪个地址：';
+  // Build modal content
+  const overlay=document.getElementById('mergeModal');
+  document.getElementById('mergeModalMsg').textContent=msg;
+  const addrSel=document.getElementById('mergeAddrSel');
+  addrSel.innerHTML='';
+  if(addrs.length>1){
+    addrSel.style.display='block';
+    addrs.forEach((a,i)=>{const opt=document.createElement('option');opt.value=a;opt.textContent=`${i+1}. ${a}`;addrSel.appendChild(opt);});
+  } else {
+    addrSel.style.display='none';
+  }
+  document.getElementById('mergeName').value=name;
+  document.getElementById('mergeIdx').value=idx;
+  document.getElementById('mergeAddrs').value=JSON.stringify(addrs);
+  overlay.classList.add('active');
+}
+function doMergeYes(){
+  const name=document.getElementById('mergeName').value;
+  const idx=parseInt(document.getElementById('mergeIdx').value);
+  const addrs=JSON.parse(document.getElementById('mergeAddrs').value);
+  const addrSel=document.getElementById('mergeAddrSel');
+  const address=addrs.length>1?addrSel.value:addrs[0];
+  pendingShippingMergeAnswers[name]={merge:true,address};
+  document.getElementById('mergeModal').classList.remove('active');
+  showMergePrompt(pendingShippingDups,idx+1);
+}
+function doMergeNo(){
+  const name=document.getElementById('mergeName').value;
+  const idx=parseInt(document.getElementById('mergeIdx').value);
+  pendingShippingMergeAnswers[name]=null;
+  document.getElementById('mergeModal').classList.remove('active');
+  showMergePrompt(pendingShippingDups,idx+1);
+}
+
+async function doExportShippingPDF(recipients){
   showLoading(true);
   try{
-    const selected=orders.filter(o=>ids.includes(o.id));const pids=prodIdsOut(selected);const tot={};pids.forEach(id=>{tot[id]=0;});
+    const pids=[...new Set(recipients.flatMap(r=>r.products.map(p=>p.product_id)))];
+    const tot={};pids.forEach(id=>{tot[id]=0;});
     const S='border:1px solid #555;padding:5px 8px;background:#eee;';
     let rows='';
-    selected.forEach(o=>{o.outgoing.forEach(r=>{
+    recipients.forEach(r=>{
       rows+='<tr>';
       rows+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
       pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="text-align:center">${q||''}</td>`;});
       rows+=`<td style="font-size:11px">${esc(r.notes||'')}</td></tr>`;
-    });});
+    });
     rows+='<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="text-align:right">合计</td>';
     pids.forEach(id=>{rows+=`<td style="text-align:center">${tot[id]}</td>`;});rows+='<td></td></tr>';
     const ph=pids.map(id=>`<th style="text-align:center;${S}">${esc(id)}</th>`).join('');
@@ -682,6 +789,9 @@ async function exportShippingPDF(){
     const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">寄件单</h2><div style="margin-bottom:16px;font-size:13px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows.replace(/<td/g,'<td style="border:1px solid #555;padding:5px 8px;"')}</tbody></table></div>`;
     const blob=await genPdf(html,'landscape');
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    const today=new Date().toISOString().split('T')[0];
+    const fname=`寄件单_${today}_${Date.now()}.pdf`;
+    await uploadPdfToR2(blob, fname);
     showToast('寄件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
@@ -693,13 +803,59 @@ async function genPdf(html,orient='portrait'){
   rd.innerHTML='';return blob;
 }
 
-// ===== History (local PDF only, no GitHub) =====
+async function uploadPdfToR2(blob, filename) {
+  try {
+    const fd = new FormData();
+    fd.append('file', blob, filename);
+    fd.append('filename', filename);
+    await fetch(`${API}/api/pdfs/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
+  } catch(e) { console.error('R2 upload failed:', e); }
+}
+
+// ===== History =====
 let historyData=[];
-async function loadHistory(){historyData=[];renderHistoryList();}
+async function loadHistory(){
+  const c=document.getElementById('historyList');
+  c.innerHTML='<div class="empty-state">加载中...</div>';
+  try {
+    const files = await apiFetch('/api/pdfs');
+    historyData = files;
+    renderHistoryList();
+  } catch(e) { c.innerHTML='<div class="empty-state">加载失败</div>'; }
+}
 function renderHistoryList(){
   const c=document.getElementById('historyList');
-  document.getElementById('historyCount').textContent='0 个档案';
-  c.innerHTML='<div class="empty-state">历史档案功能已移至本地下载，PDF 将直接在浏览器打开。</div>';
+  const pickup=histView==='pickup';
+  const list=historyData.filter(f=>pickup?f.key.startsWith('取件单'):f.key.startsWith('寄件单'));
+  document.getElementById('historyCount').textContent=list.length+' 个档案';
+  if(!list.length){c.innerHTML=`<div class="empty-state">${pickup?'没有取件单档案':'没有寄件单档案'}</div>`;return;}
+  let h='';
+  list.forEach(f=>{
+    const date=new Date(f.uploaded).toLocaleDateString('zh-CN');
+    const size=Math.round(f.size/1024)+'KB';
+    h+=`<div class="history-item">
+      <div class="history-info">
+        <div class="history-date">${esc(f.key)}</div>
+        <div class="history-meta">${date} · ${size}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-accent btn-sm" onclick="viewPdf('${esc(f.key)}')">查看</button>
+        ${histEditMode?`<button class="btn btn-danger btn-sm" onclick="deletePdfR2('${esc(f.key)}')">删除</button>`:''}
+      </div>
+    </div>`;
+  });
+  c.innerHTML=h;
+}
+function viewPdf(key){
+  window.open(`${API}/api/pdfs/${encodeURIComponent(key)}`,'_blank');
+}
+async function deletePdfR2(key){
+  if(!confirm(`确定删除 ${key}？`))return;
+  try {
+    await fetch(`${API}/api/pdfs/${encodeURIComponent(key)}`,{method:'DELETE',headers:HEADERS});
+    showToast('已删除','success');
+    loadHistory();
+  } catch(e){showToast('删除失败','error');}
 }
 
 // ===== Products =====

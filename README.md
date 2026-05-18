@@ -112,16 +112,16 @@ CREATE TABLE products (
 | 方法 | 路径 | 鉴权 | 功能 |
 |---|---|---|---|
 | POST | `/api/parse` | 无 | AI 解析订单文字，返回 JSON |
-| GET | `/api/orders` | 需要 | 读取所有订单 |
-| POST | `/api/orders` | 需要 | 新增订单 |
-| PUT | `/api/orders/:id` | 需要 | 修改订单 |
+| GET | `/api/orders` | 无 | 读取所有订单 |
+| POST | `/api/orders` | 无 | 新增订单 |
+| PUT | `/api/orders/:id` | 无 | 修改订单 |
 | DELETE | `/api/orders/:id` | 需要 | 删除订单 |
 | GET | `/api/products` | 无 | 读取产品列表 |
 | PUT | `/api/products` | 需要 | 保存产品列表（含订单同步） |
 
 鉴权方式：请求 Header 带 `Authorization: Bearer {ADMIN_TOKEN}`。
 
-`/api/parse` 和 `GET /api/products` 是公开端点，index.html 客户端直接调用，不需要 token。
+index.html 的所有操作（读取、新增、修改订单）均为公开端点，不需要 token。需要 token 的操作只有删除订单和保存产品列表，仅 admin.html 使用。
 
 
 ## Cloudflare Worker 环境变量
@@ -282,4 +282,4 @@ PDF 直接在浏览器生成并打开，不再存档到云端。历史档案分�
 5. `/api/parse` 每次调用都实时读取 D1 里的产品列表和已有订单号，不缓存
 6. PDF 生成是纯前端，不存档，需要手动保存
 7. admin.html 的 `CONFIG.adminToken` 是 `fj_2025_xK9mP3`
-8. index.html 修改订单功能需要 ADMIN_TOKEN 来读取和更新订单，当前 index.html 的 `CONFIG.adminToken` 为空字符串，修改订单功能需要填入 token 才能正常使用
+8. index.html 的 `CONFIG.adminToken` 保持空字符串即可，所有 index.html 需要的端点都是公开的
