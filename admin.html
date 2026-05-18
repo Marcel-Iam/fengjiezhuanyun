@@ -728,13 +728,7 @@ function showMergePrompt(dupNames,idx){
   const group=pendingShippingRecipients.filter(r=>r.name.trim()===name);
   const addrs=[...new Set(group.map(r=>r.address.trim()))];
   let msg=`发现收件人「${name}」出现 ${group.length} 次，是否合并为一行？`;
-  if(addrs.length>1)msg+=`
-
-该收件人有 ${addrs.length} 个不同地址：
-`+addrs.map((a,i)=>`${i+1}. ${a}`).join('
-')+'
-
-请选择使用哪个地址：';
+  if(addrs.length>1)msg+='\n\n该收件人有 '+addrs.length+' 个不同地址：\n'+addrs.map((a,i)=>`${i+1}. ${a}`).join('\n')+'\n\n请选择使用哪个地址：';
   // Build modal content
   const overlay=document.getElementById('mergeModal');
   document.getElementById('mergeModalMsg').textContent=msg;
