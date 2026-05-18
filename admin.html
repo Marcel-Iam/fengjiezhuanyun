@@ -789,7 +789,6 @@ async function doExportShippingPDF(recipients){
     const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">寄件单</h2><div style="margin-bottom:16px;font-size:13px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows.replace(/<td/g,'<td style="border:1px solid #555;padding:5px 8px;"')}</tbody></table></div>`;
     const blob=await genPdf(html,'landscape');
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
-    const today=new Date().toISOString().split('T')[0];
     const fname=`寄件单_${today}_${Date.now()}.pdf`;
     await uploadPdfToR2(blob, fname);
     showToast('寄件单已生成','success');
