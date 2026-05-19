@@ -683,38 +683,63 @@ async function doExportIncomingPDF(){
   showLoading(false);
 }
 
+// 常用繁简转换表
+const TRAD_TO_SIMP={
+  '張':'张','國':'国','龍':'龙','東':'东','來':'来','學':'学','說':'说','時':'时','過':'过','對':'对',
+  '樣':'样','現':'现','還':'还','體':'体','為':'为','與':'与','興':'兴','從':'从','歷':'历','電':'电',
+  '話':'话','語':'语','書':'书','會':'会','長':'长','開':'开','關':'关','問':'问','間':'间','聽':'听',
+  '點':'点','頭':'头','實':'实','發':'发','見':'见','們':'们','邊':'边','後':'后','麼':'么','個':'个',
+  '這':'这','進':'进','門':'门','號':'号','後':'后','頻':'频','劉':'刘','陳':'陈','鄭':'郑','馮':'冯',
+  '韓':'韩','楊':'杨','馬':'马','謝':'谢','盧':'卢','葉':'叶','顧':'顾','鄧':'邓','許':'许','湯':'汤',
+  '錢':'钱','龔':'龚','鍾':'钟','蕭':'萧','賈':'贾','賴':'赖','麥':'麦','藍':'蓝','羅':'罗','嚴':'严',
+  '範':'范','薛':'薛','魏':'魏','顏':'颜','謹':'谨','麗':'丽','聰':'聪','強':'强','偉':'伟','鋒':'锋',
+};
+function toSimp(str){return str.split('').map(c=>TRAD_TO_SIMP[c]||c).join('');}
+
 async function exportShippingPDF(){
   const ids=sel('shipping');if(!ids.length){showToast('请先勾选要导出的订单','error');return;}
-  // Collect all recipients from selected orders
   const selected=orders.filter(o=>ids.includes(o.id));
   let allRecipients=[];
-  selected.forEach(o=>{o.outgoing.forEach(r=>{allRecipients.push({...r,_orderId:o.id});});});
-  // Check for duplicate names
-  const nameGroups={};
-  allRecipients.forEach(r=>{const n=r.name.trim();if(!nameGroups[n])nameGroups[n]=[];nameGroups[n].push(r);});
-  const dupNames=Object.keys(nameGroups).filter(n=>nameGroups[n].length>1);
-  if(dupNames.length>0){
-    // Show merge prompt
+  selected.forEach(o=>{o.outgoing.forEach(r=>{
+    // Convert name to simplified
+    const simpName=toSimp(r.name.trim());
+    allRecipients.push({...r, name: simpName, _origName: r.name, _orderId: o.id});
+  });});
+
+  // Group by normalized name OR phone
+  const groups=[];
+  const assigned=new Set();
+  allRecipients.forEach((r,i)=>{
+    if(assigned.has(i))return;
+    const group=[r];assigned.add(i);
+    allRecipients.forEach((r2,j)=>{
+      if(i===j||assigned.has(j))return;
+      const sameName=r.name===r2.name;
+      const samePhone=r.phone.trim()&&r.phone.trim()===r2.phone.trim();
+      if(sameName||samePhone){group.push(r2);assigned.add(j);}
+    });
+    if(group.length>1)groups.push(group);
+  });
+
+  if(groups.length>0){
     pendingShippingRecipients=allRecipients;
-    pendingShippingDups=dupNames;
+    pendingShippingDups=groups;
     pendingShippingMergeAnswers={};
-    showMergePrompt(dupNames,0);
+    showMergePromptGroup(0);
     return;
   }
   doExportShippingPDF(allRecipients);
 }
 
 let pendingShippingRecipients=[];let pendingShippingDups=[];let pendingShippingMergeAnswers={};
-function showMergePrompt(dupNames,idx){
-  if(idx>=dupNames.length){
-    // Apply merges
+
+function showMergePromptGroup(idx){
+  if(idx>=pendingShippingDups.length){
     let recipients=[...pendingShippingRecipients];
-    dupNames.forEach(name=>{
-      const ans=pendingShippingMergeAnswers[name];
+    pendingShippingDups.forEach((group,gi)=>{
+      const ans=pendingShippingMergeAnswers[gi];
       if(!ans)return;
-      const group=recipients.filter(r=>r.name.trim()===name);
-      const others=recipients.filter(r=>r.name.trim()!==name);
-      // Merge products
+      const others=recipients.filter(r=>!group.includes(r));
       const merged={...group[0],address:ans.address,products:[]};
       const prodMap={};
       group.forEach(r=>r.products.forEach(p=>{if(!prodMap[p.product_id])prodMap[p.product_id]={...p,quantity:0};prodMap[p.product_id].quantity+=p.quantity;}));
@@ -724,43 +749,45 @@ function showMergePrompt(dupNames,idx){
     doExportShippingPDF(recipients);
     return;
   }
-  const name=dupNames[idx];
-  const group=pendingShippingRecipients.filter(r=>r.name.trim()===name);
+  const group=pendingShippingDups[idx];
+  const names=[...new Set(group.map(r=>r.name))];
+  const phones=[...new Set(group.map(r=>r.phone.trim()))];
   const addrs=[...new Set(group.map(r=>r.address.trim()))];
-  let msg=`发现收件人「${name}」出现 ${group.length} 次，是否合并为一行？`;
-  if(addrs.length>1)msg+='\n\n该收件人有 '+addrs.length+' 个不同地址：\n'+addrs.map((a,i)=>`${i+1}. ${a}`).join('\n')+'\n\n请选择使用哪个地址：';
-  // Build modal content
+  const reasons=[];
+  if(names.length>1)reasons.push('名字相似（'+names.join(' / ')+'）');
+  else reasons.push('名字相同（'+names[0]+'）');
+  if(phones.length===1)reasons.push('电话相同（'+phones[0]+'）');
+  let msg='发现可能重复的收件人：'+reasons.join('，')+'。\n\n是否合并为一行？';
+  if(addrs.length>1){msg+='\n\n该收件人有 '+addrs.length+' 个不同地址：\n'+addrs.map((a,i)=>(i+1)+'. '+a).join('\n')+'\n\n请选择使用哪个地址：';}
   const overlay=document.getElementById('mergeModal');
   document.getElementById('mergeModalMsg').textContent=msg;
   const addrSel=document.getElementById('mergeAddrSel');
   addrSel.innerHTML='';
   if(addrs.length>1){
     addrSel.style.display='block';
-    addrs.forEach((a,i)=>{const opt=document.createElement('option');opt.value=a;opt.textContent=`${i+1}. ${a}`;addrSel.appendChild(opt);});
+    addrs.forEach((a,i)=>{const opt=document.createElement('option');opt.value=a;opt.textContent=(i+1)+'. '+a;addrSel.appendChild(opt);});
   } else {
     addrSel.style.display='none';
   }
-  document.getElementById('mergeName').value=name;
+  document.getElementById('mergeName').value=names[0];
   document.getElementById('mergeIdx').value=idx;
   document.getElementById('mergeAddrs').value=JSON.stringify(addrs);
   overlay.classList.add('active');
 }
 function doMergeYes(){
-  const name=document.getElementById('mergeName').value;
   const idx=parseInt(document.getElementById('mergeIdx').value);
   const addrs=JSON.parse(document.getElementById('mergeAddrs').value);
   const addrSel=document.getElementById('mergeAddrSel');
   const address=addrs.length>1?addrSel.value:addrs[0];
-  pendingShippingMergeAnswers[name]={merge:true,address};
+  pendingShippingMergeAnswers[idx]={merge:true,address};
   document.getElementById('mergeModal').classList.remove('active');
-  showMergePrompt(pendingShippingDups,idx+1);
+  showMergePromptGroup(idx+1);
 }
 function doMergeNo(){
-  const name=document.getElementById('mergeName').value;
   const idx=parseInt(document.getElementById('mergeIdx').value);
-  pendingShippingMergeAnswers[name]=null;
+  pendingShippingMergeAnswers[idx]=null;
   document.getElementById('mergeModal').classList.remove('active');
-  showMergePrompt(pendingShippingDups,idx+1);
+  showMergePromptGroup(idx+1);
 }
 
 async function doExportShippingPDF(recipients){
