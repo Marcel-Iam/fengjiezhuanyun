@@ -1,0 +1,30 @@
+name = "fengjiezhuanyun"
+main = "worker.js"
+compatibility_date = "2026-05-13"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fengjiezhuanyun"
+database_id = "44654a96-ef22-4f42-a2c2-71ab51bbdf50"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "d2eebd58e3aa4bec93e69b33831afc26"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "fengjiezhuanyun-pdfs"
+
+[vars]
+ADMIN_TOKEN = "fj_2025_xK9mP3"
+WECHAT_TOKEN = "D11Cqix3"
+WECHAT_AES_KEY = "paOpwHEomR9pee1V5JQGOWEUCpgXUxcAQryg5XuFDpX"
+WECHAT_CORP_ID = "ww38686c7fe12538c0"
+WECHAT_KF_ID = "kfc29e3bd6ee29fe5b4"
+GEMINI_API_KEY = "AIzaSyCszr5kN-ggt2Mn_AaY3x3Q2q0DE9fCGHQ"
+WECHAT_CORP_SECRET = "HH0BDyS1GR2LfAmTbFaRMz2bpJQLVEZvgsqmeaN67oM"
+
+[[routes]]
+pattern = "api.marceliam.com"
+zone_name = "marceliam.com"
+custom_domain = true
