@@ -131,8 +131,8 @@
 
 <div id="adminView" class="container" style="display:none;">
   <h1>管理后台</h1>
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:0;">
-    <div class="tabs" style="margin-bottom:0;flex:1;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--border);margin-bottom:20px;">
+    <div class="tabs" style="margin-bottom:0;border-bottom:none;flex:1;">
       <button class="tab active" onclick="switchTab('incoming')">来件管理</button>
       <button class="tab" onclick="switchTab('shipping')">寄件管理</button>
       <button class="tab" onclick="switchTab('history')">历史档案</button>
@@ -1316,7 +1316,7 @@ function applyAddParsedOrder(btn){
   if(!data.outgoing||!data.outgoing.length)addARecipient();
   btn.textContent='✅ 已填入表单';btn.disabled=true;
   const hasWarnings=data.warnings&&data.warnings.length>0;
-  showToast(hasWarnings?'已填入，请核对产品数量后提交':'订单信息已填入，请检查后提交','success');
+  showToast(hasWarnings?'部分信息已填入，请补充缺少的内容后提交':'订单信息已填入，请检查后提交','success');
 }
 
 // ===== Tabs =====
