@@ -213,7 +213,6 @@
       <button class="btn btn-accent" onclick="saveProducts()" style="margin-top:12px;">保存产品列表</button>
     </div>
   </div>
-</div>
 
   <!-- 搜索 -->
   <div id="tab-search" class="tab-content">
@@ -1007,6 +1006,72 @@ async function saveProducts(){
 }
 
 // ===== Search =====
+function buildSearchIncomingTable(list){
+  if(!list.length) return '<div class="empty-state" style="padding:16px 0;">无结果</div>';
+  const pids=prodIdsIn(list);
+  const actStyle='vertical-align:middle;white-space:nowrap;background:var(--card);';
+  const actStyleInput='vertical-align:middle;background:var(--input-bg);';
+  let h='<div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
+  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
+  pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>日期</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
+  list.forEach(o=>{
+    const rowspan=o.incoming.length||1;
+    o.incoming.forEach((inc,ii)=>{
+      h+='<tr>';
+      if(ii===0) h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
+      h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
+      pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
+      if(ii===0){
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
+        h+=`<td rowspan="${rowspan}" style="${actStyleInput}text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=`<td rowspan="${rowspan}" class="act-col" style="${actStyle}"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function buildSearchShippingTable(list){
+  if(!list.length) return '<div class="empty-state" style="padding:16px 0;">无结果</div>';
+  const pids=prodIdsOut(list);
+  const actStyle='vertical-align:middle;white-space:nowrap;background:var(--card);';
+  const actStyleInput='vertical-align:middle;background:var(--input-bg);';
+  let h='<div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
+  h+='<th>填表人</th><th>订单号</th><th>收件人</th><th>地址</th><th>电话</th>';
+  pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>备注</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
+  list.forEach(o=>{
+    const rl=o.outgoing.length||1;
+    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
+    const actionCell=`<td rowspan="${rl}" class="act-col" style="${actStyle}"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
+    if(!o.outgoing.length){
+      h+=`<tr><td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td></td>${actionCell}</tr>`;
+      return;
+    }
+    o.outgoing.forEach((r,ri)=>{
+      h+='<tr>';
+      if(ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
+      h+=`<td>${esc(r.name)}</td><td style="min-width:160px;max-width:240px;word-break:break-all">${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
+      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
+      h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
+      if(ri===0){
+        h+=`<td rowspan="${rl}" style="${actStyleInput}text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=actionCell;
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function searchSection(title, inner, marginTop=false){
+  return `<div class="search-section-title"${marginTop?' style="margin-top:20px;"':''}>${title}</div><div class="section" style="padding:12px;">${inner}</div>`;
+}
+
 function runSearch(){
   const q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
   const container=document.getElementById('searchResults');
@@ -1021,70 +1086,16 @@ function runSearch(){
 
   if(!matched.length){container.innerHTML='<div class="empty-state" style="padding:24px;">没有找到匹配的订单</div>';return;}
 
-  const pidsIn=prodIdsIn(matched);
-  const pidsOut=prodIdsOut(matched);
-  // action cell style: explicit bg so sticky last-child doesn't bleed over it
-  const actStyle='vertical-align:middle;white-space:nowrap;background:var(--card);';
-  const actClass='act-col';
-  const actStyleInput='vertical-align:middle;background:var(--input-bg);';
+  const notPickedUp  = matched.filter(o=>!o.picked_up);
+  const pickedUp     = matched.filter(o=>o.picked_up);
+  const notShipped   = matched.filter(o=>!o.shipped);
+  const shipped      = matched.filter(o=>o.shipped);
 
   let h='';
-
-  // --- Incoming section ---
-  h+='<div class="search-section-title">来件管理</div>';
-  h+='<div class="section" style="padding:12px;"><div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
-  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
-  pidsIn.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
-  h+='<th>日期</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
-  matched.forEach(o=>{
-    const rowspan=o.incoming.length||1;
-    o.incoming.forEach((inc,ii)=>{
-      h+='<tr>';
-      if(ii===0){
-        h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
-      }
-      h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
-      pidsIn.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
-      if(ii===0){
-        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
-        h+=`<td rowspan="${rowspan}" style="${actStyleInput}text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
-        h+=`<td rowspan="${rowspan}" class="${actClass}" style="${actStyle}"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
-      }
-      h+='</tr>';
-    });
-  });
-  h+='</tbody></table></div></div>';
-
-  // --- Shipping section ---
-  h+='<div class="search-section-title" style="margin-top:20px;">寄件管理</div>';
-  h+='<div class="section" style="padding:12px;"><div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
-  h+='<th>填表人</th><th>订单号</th><th>收件人</th><th>地址</th><th>电话</th>';
-  pidsOut.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
-  h+='<th>备注</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
-  matched.forEach(o=>{
-    const rl=o.outgoing.length||1;
-    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
-    const actionCell=`<td rowspan="${rl}" class="${actClass}" style="${actStyle}"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
-    if(!o.outgoing.length){
-      h+=`<tr><td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pidsOut.length+1}">无收件人</td><td></td>${actionCell}</tr>`;
-      return;
-    }
-    o.outgoing.forEach((r,ri)=>{
-      h+='<tr>';
-      if(ri===0){
-        h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
-      }
-      h+=`<td>${esc(r.name)}</td><td style="min-width:160px;max-width:240px;word-break:break-all">${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
-      pidsOut.forEach(id=>{const x=r.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
-      h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
-      if(ri===0){
-        h+=`<td rowspan="${rl}" style="${actStyleInput}text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
-        h+=actionCell;
-      }
-      h+='</tr>';
-    });
-  });
-  h+='</tbody></table></div></div>';
+  h+=searchSection(`未取货 (${notPickedUp.length})`,  buildSearchIncomingTable(notPickedUp));
+  h+=searchSection(`已取货 (${pickedUp.length})`,     buildSearchIncomingTable(pickedUp),   true);
+  h+=searchSection(`未寄出 (${notShipped.length})`,   buildSearchShippingTable(notShipped), true);
+  h+=searchSection(`已寄出 (${shipped.length})`,      buildSearchShippingTable(shipped),    true);
 
   container.innerHTML=h;
 }
