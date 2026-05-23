@@ -2,30 +2,36 @@
 
 ## 项目概述
 
-前端静态网站托管在 GitHub Pages，后端逻辑和数据库全部在 Cloudflare。没有传统服务器。
-
 | 组件 | 平台 | URL |
 |---|---|---|
-| 前端（index.html / admin.html） | GitHub Pages | `https://marcel-iam.github.io/fengjiezhuanyun/` |
-| API + 业务逻辑 | Cloudflare Worker | `https://fengjiezhuanyun.yamhl12.workers.dev` |
-| 数据库 | Cloudflare D1 | 绑定名称：`DB` |
+| 前端（index.html / admin.html） | Cloudflare Pages | `https://fengjiezhuanyun.marceliam.com` |
+| API + 数据库 | Cloudflare Worker + D1 | `https://api.marceliam.com` |
+| 微信消息处理 | Render | `https://fengjiezhuanyun-render.onrender.com` |
+| 微信 Webhook 域名 | Cloudflare DNS → Render | `https://wx.marceliam.com` |
 
-GitHub 仓库：`Marcel-Iam/fengjiezhuanyun`
+GitHub 仓库：`Marcel-Iam/fengjiezhuanyun`（monorepo）
 
 
 ## 文件结构
 
 ```
-GitHub repo (fengjiezhuanyun):
-├── index.html          客户下单页面（含 AI 聊天窗口）
-└── admin.html          管理后台
+GitHub repo (fengjiezhuanyun) — monorepo：
+├── pages/
+│   ├── index.html      客户下单页面（含 AI 聊天窗口）
+│   └── admin.html      管理后台
+└── render/
+    ├── index.js        Express 服务，处理微信 Webhook 和多轮对话
+    └── package.json
 
-Cloudflare Worker:
-└── worker.js           所有 API 逻辑
+本地（不推送 GitHub，.gitignore 保护）：
+└── worker-cloudflare/
+    ├── worker.js       所有 API 逻辑
+    └── wrangler.toml   binding 配置和环境变量
 
 Cloudflare D1 (fengjiezhuanyun):
 ├── orders 表           订单数据
-└── products 表         产品列表
+├── products 表         产品列表
+└── customer_names 表   客户填表人名字记忆
 ```
 
 
@@ -42,8 +48,9 @@ CREATE TABLE orders (
   picked_up INTEGER DEFAULT 0,
   shipped INTEGER DEFAULT 0,
   source TEXT DEFAULT 'manual',
-  incoming TEXT,   -- JSON 字符串
-  outgoing TEXT    -- JSON 字符串
+  incoming TEXT,
+  outgoing TEXT,
+  external_userid TEXT
 );
 ```
 
@@ -57,23 +64,24 @@ CREATE TABLE orders (
   "paid_status": false,
   "picked_up": false,
   "shipped": false,
-  "source": "manual",
+  "source": "wechat",
+  "external_userid": "wmeoiMTQAAoLj3jAXdTou7Hl6RT1ewyA",
   "incoming": [
     {
-      "express_code": "DD20250508001",
-      "pickup_code": "8832",
+      "express_code": "636157",
+      "pickup_code": "249247",
       "products": [
-        { "product_id": "p001", "product_name": "产品A", "quantity": 20 }
+        { "product_id": "am", "product_name": "AM丸Cap (瓶)", "quantity": 24 }
       ]
     }
   ],
   "outgoing": [
     {
-      "name": "张伟",
-      "phone": "13800001111",
-      "address": "北京市朝阳区建国路88号",
+      "name": "林京子",
+      "phone": "13124341581",
+      "address": "辽宁省沈阳市沈北新区...",
       "products": [
-        { "product_id": "p001", "product_name": "产品A", "quantity": 20 }
+        { "product_id": "am", "product_name": "AM丸Cap (瓶)", "quantity": 24 }
       ],
       "notes": ""
     }
@@ -84,13 +92,13 @@ CREATE TABLE orders (
 关键字段：
 
 - `id`：格式 `ORD_{timestamp}_{random4}`
-- `created_by`：填表人称呼
-- `paid_status`：运费是否已收，boolean（D1 里存 0/1）
+- `paid_status`：运费是否已收（D1 里存 0/1）
 - `picked_up`：货物是否已从快递处取回
 - `shipped`：货物是否已寄出
-- `source`：来源，`manual`（手动填单）
-- `incoming`：来件信息数组，一个大订单可包含多张来件单，每张有独立的 `express_code`（内部单号）、`pickup_code`（取货时的确认码）、`products`
-- `outgoing`：收件人列表，最终客户信息
+- `source`：`manual`（手动填单）或 `wechat`（微信客服）
+- `external_userid`：微信客户的唯一 ID（`wm` 开头），用于识别哪个账号提交了订单
+- `incoming`：来件信息数组，每张来件单有 `express_code`、`pickup_code`、`products`
+- `outgoing`：收件人列表，每个收件人有 `name`、`phone`、`address`、`products`、`notes`
 
 ### products 表
 
@@ -102,184 +110,260 @@ CREATE TABLE products (
 );
 ```
 
-- `uid`：永久唯一标识符，格式 `uid_{timestamp}_{random4}`，创建后不变，用于追踪产品改名或改 id
+- `uid`：永久唯一标识符，创建后不变
 - `id`：产品短码，显示在表格和 PDF 表头
-- `product_name`：产品全称，显示在下拉选单和数量校验提示
+- `product_name`：产品全称
+
+### customer_names 表
+
+```sql
+CREATE TABLE customer_names (
+  external_userid TEXT PRIMARY KEY,
+  created_by TEXT,
+  updated_at TEXT
+);
+```
+
+存储微信客户的上次填表人称呼，下次聊天自动填入。
 
 
-## Worker API 端点
+## Cloudflare Worker API 端点
 
 | 方法 | 路径 | 鉴权 | 功能 |
 |---|---|---|---|
-| POST | `/api/parse` | 无 | AI 解析订单文字，返回 JSON |
+| POST | `/api/parse` | 无 | AI 解析订单文字（网页端） |
 | GET | `/api/orders` | 无 | 读取所有订单 |
 | POST | `/api/orders` | 无 | 新增订单 |
 | PUT | `/api/orders/:id` | 无 | 修改订单 |
 | DELETE | `/api/orders/:id` | 需要 | 删除订单 |
+| GET | `/api/orders/by-code` | 无 | 按订单号查询（含 external_userid） |
 | GET | `/api/products` | 无 | 读取产品列表 |
 | PUT | `/api/products` | 需要 | 保存产品列表（含订单同步） |
+| GET | `/api/cursor` | 无 | 读取 sync_msg cursor |
+| POST | `/api/cursor` | 无 | 保存 sync_msg cursor |
+| GET | `/api/customer_name` | 无 | 读取客户填表人名字 |
+| POST | `/api/customer_name` | 无 | 保存客户填表人名字 |
 
-鉴权方式：请求 Header 带 `Authorization: Bearer {ADMIN_TOKEN}`。
-
-index.html 的所有操作（读取、新增、修改订单）均为公开端点，不需要 token。需要 token 的操作只有删除订单和保存产品列表，仅 admin.html 使用。
+鉴权方式：`Authorization: Bearer {ADMIN_TOKEN}`。
 
 
 ## Cloudflare Worker 环境变量
 
-在 Worker → Settings → Variables and Secrets 里设置：
-
 | 变量名 | 说明 |
 |---|---|
-| `GEMINI_API_KEY` | Google AI Studio 的 API key |
-| `ADMIN_TOKEN` | 前端鉴权 token，admin.html 使用 |
+| `GEMINI_API_KEY` | Google AI Studio API key |
+| `ADMIN_TOKEN` | admin.html 鉴权 token，当前值：`fj_2025_xK9mP3` |
 
 Bindings：
 - `DB` → D1 数据库 `fengjiezhuanyun`
+- `KV` → KV 命名空间（存 cursor）
 
-KV 命名空间已不再使用，可以删除。
-`WECHAT_*` 相关环境变量也已不再使用，可以删除。
+Worker Placement 设为 **Smart**（避免 Gemini 地区限制错误）。
+
+
+## 微信客服接入
+
+### 配置信息
+
+- 企业ID：`ww38686c7fe12538c0`
+- 自建应用 AgentId：`1000002`
+- 微信客服账号：凤姐转运客服，open_kfid：`kfc29e3bd6ee29fe5b4`
+- 接收消息 URL：`https://wx.marceliam.com/wx`
+- Token：`D11Cqix3`
+- EncodingAESKey：`paOpwHEomR9pee1V5JQGOWEUCpgXUxcAQryg5XuFDpX`
+- 接待人员：`RenKaiLing`（需处于"正在接待"状态）
+- 企业可信IP：`74.220.50.240`（Render 出口 IP，如变化需更新）
+
+### 消息流程
+
+```
+客户发微信消息
+    ↓
+企业微信 POST → wx.marceliam.com/wx（Render）
+    ↓
+Render 解密 kf_msg_or_event 事件
+    ↓
+调用 sync_msg API 拉取实际消息
+    ↓
+检查会话状态（state 0→1，state 2→3）
+    ↓
+检查重复订单号（代码层面，仅比对 express_code，并验证 by-code API 确认匹配类型）
+    ↓ 同一账号重复 → 修改模式
+    ↓ 不同账号重复 → 拒绝
+    ↓ 无重复 → 正常流程
+    ↓
+Gemini 解析，多轮对话状态机
+    ↓
+信息完整 → 发送确认预览
+    ↓
+客户回复"确认" → 写入 D1
+    ↓
+回复成功
+```
+
+### 多轮对话状态机
+
+状态存在 Render 内存，30分钟无消息自动清空。
+
+**正常流程：**
+1. 客户发消息 → Gemini 提取信息，判断缺什么 → 追问
+2. 信息完整 → 发两条消息（预览含填表人 + 操作提示）
+3. 客户回复"确认" → POST 新建订单（含 `external_userid`）
+4. 客户回复"取消" → 清空状态
+
+**修改模式（edit_mode）：**
+1. 客户发含已存在订单号的消息
+2. 查 `/api/orders/by-code`，判断 `external_userid`
+3. 同一账号 → 发三条消息（提示切换修改模式、现有订单预览、操作说明）
+4. 不同账号 → 拒绝，提示安全原因
+5. 修改模式下，用户复制修改后重发 → Gemini 解析（不检查重复）→ 确认预览
+6. 确认 → PUT 更新订单
+
+**确认触发词：** 只接受精确的 `"确认"` 或 `"yes"`
+
+**取消触发词：** `"取消"`、`"重新来"`、`"重置"`、`"算了"`
+
+
+### Gemini Prompt 规则（微信端）
+
+1. 把客户新消息的信息合并进已有信息，一条消息包含所有必要信息时直接判断完整
+2. `partial_data` 始终填入已收集到的所有内容
+3. 信息完整条件：有订单号、取货码、至少一个收件人（含姓名/电话/地址）、来件和寄件产品总数匹配
+4. 信息完整时：`valid=true`，`ready_to_submit=true`，`data` 填完整数据
+5. 信息不完整时：`valid=false`，`error_reply` 最多两句话说清楚缺什么
+6. 产品先模糊匹配，实在无法确认才询问
+7. 只对照"数据库中已有的订单号"列表检查重复（不含取货码），列表里没有就不算重复
+8. 来件和寄件产品总数不匹配时：`valid=false`，说明哪个产品数量对不上
+9. 只能使用产品列表里有的产品ID
+10. 只返回 JSON，不要 markdown 代码块
+11. 只有一个来件单且只有一个收件人时，自动把来件产品全部分配给该收件人
+12. 客户说要修改已有订单时，回复引导去网页操作
+13. 客户发来新订单号与已有 `partial_data` 里的订单号不同时，用新信息替换旧信息
+14. 信息格式：客户可能用①②分段，严格按编号分组提取，不跨组混合
+15. `"am"`、`"AM"`、`"pm"`、`"PM"` 是产品名称缩写，不是时间
+
+
+### Gemini Prompt 规则（网页端 /api/parse）
+
+网页端为单轮解析，两阶段处理：
+
+**第一阶段：Gemini 只负责提取**，不做任何数量计算或缺字段判断。只有以下情况返回 `valid=false`：
+- 订单号已存在数据库
+- 同一次输入内订单号重复
+- 产品完全无法识别（模糊匹配也无法确认）
+
+其他所有情况（包括缺字段）一律 `valid=true`，尽量提取已有信息，缺少的字段留空。
+
+**第二阶段：代码计算 warnings**，Gemini 返回后由 Worker 代码处理：
+- 缺来件字段 → `"缺少订单号"`、`"缺少取货码"`
+- 缺收件人字段 → `"收件人 1 缺少姓名"`、`"收件人 1 缺少电话"`、`"收件人 1 缺少地址"`
+- 来件和寄件产品总数不匹配 → `"产品名 来件X，寄件Y"`（只列数量不同的）
+- 如果 Gemini 返回了 `error_reply`（如产品无法识别）但仍有部分数据，`error_reply` 作为第一条 warning，继续计算其他 warnings，最终以 `valid=true` 返回
+
+硬拒绝（`valid=false`，不返回任何数据）：订单号重复或已存在数据库，且 Gemini 没有返回任何 `incoming`/`outgoing` 数据。
+
+只对照"数据库中已有的订单号"列表检查重复（不含取货码）。
+
+
+## Render 环境变量
+
+| 变量名 | 值 |
+|---|---|
+| `WECHAT_TOKEN` | `D11Cqix3` |
+| `WECHAT_AES_KEY` | `paOpwHEomR9pee1V5JQGOWEUCpgXUxcAQryg5XuFDpX` |
+| `WECHAT_CORP_ID` | `ww38686c7fe12538c0` |
+| `WECHAT_CORP_SECRET` | 自建应用 Secret |
+| `WECHAT_KF_ID` | `kfc29e3bd6ee29fe5b4` |
+| `GEMINI_API_KEY` | Gemini API key |
+| `WORKER_URL` | `https://api.marceliam.com` |
+| `ADMIN_TOKEN` | `fj_2025_xK9mP3` |
 
 
 ## AI 模型
 
-使用 `gemini-3.1-flash-lite-preview`，通过 Google AI Studio 免费额度调用（RPD 500，RPM 20）。
+使用 `gemini-3.1-flash-lite-preview`，Google AI Studio 免费额度（RPD 500，RPM 20）。
 
-每次调用 `/api/parse` 前会：
-1. 从 D1 实时读取最新产品列表
-2. 从 D1 读取所有已有订单号和取货码，用于重复检查
+网页端和微信端分别调用，每次实时读取最新产品列表和已有订单号（仅 `express_code`，不含 `pickup_code`）。
 
-
-## AI Parse 规则
-
-1. 信息不完整（缺订单号、取货码、收件人、电话、地址）→ 说明缺了什么
-2. 产品无法识别 → 先模糊匹配，实在无法确认才询问
-3. 同一次输入内订单号或取货码重复 → 指出哪个重复
-4. 订单号或取货码已存在数据库 → 说明已录入过
-5. 来件产品总数和寄件产品总数不匹配 → 说明哪个产品数量对不上
-6. 只能用产品列表里有的产品
-7. 回复语气：口语中文，简洁说明问题
+Worker Placement 必须设为 Smart，否则某些 Cloudflare 边缘节点会触发 Gemini 地区限制错误。
 
 
 ## index.html - 客户下单页面
 
-### 页面结构
+托管在 `fengjiezhuanyun.marceliam.com`（Cloudflare Pages）。
 
-**上方（可折叠）：查找 / 修改已提交订单**
-- 输入任意一个来件单号搜寻整个大订单
-- 载入后填入表单，底部切换为"发送修改"和"取消修改"
+**上方（可折叠）：** 查找 / 修改已提交订单，输入任意来件单号搜寻。
 
-**下方（金色边框）：提交新订单**
-- 填表人称呼
-- 来件信息：每张来件单一张卡片（可增删），每张卡有订单号、取货码、产品列表
-- 收件人信息：每个收件人一张卡片（可增删）
+**下方（金色边框）：** 提交新订单，填表人、来件信息（可增删）、收件人（可增删）。
 
-**右下角浮动按钮：AI 智能填单**
-- 聊天窗口，粘贴订单文字后 AI 自动解析
-- 解析成功显示预览，点"确认填入表单"自动填入
-- 解析失败显示错误原因，提示补充信息
+**右下角浮动按钮：** AI 智能填单，粘贴文字后 AI 解析，确认后填入表单。
 
-### 功能
+AI 解析行为：
+- 缺必填字段、订单号重复、无法识别产品 → 显示红色错误，不提供填入选项
+- 产品数量不匹配 → 显示解析结果，预览下方附橙色警告，仍可填入表单；填入后 toast 提示在收件人备注写明特殊情况
+- 收件人备注：如客户原始信息有备注，AI 正常填入；不自动追加数量警告文字
 
-- 来件和寄件产品数量校验（跨所有来件单合并计算），不匹配时弹确认框
-- 修改订单时不改动 `paid_status`
-- 所有 API 调用经 Cloudflare Worker，无敏感信息暴露在前端
-
-### 安全
-
-`esc()` 对所有用户输入做 HTML 实体转义，防止 XSS。
+来件和寄件产品数量校验（不匹配时弹确认框）。修改订单不改动 `paid_status`。
 
 
 ## admin.html - 管理后台
 
-### 密码
+密码：`456456`，五个分页：来件管理、寄件管理、历史档案、产品管理、搜索。
 
-硬编码在 `CONFIG.password`，当前是 `456456`。
+顶部分页栏右侧有「+ 添加订单」按钮，弹出 overlay 直接在后台新建订单。
 
-### 四个主分页
+**来件管理：** 未取货 / 已取货子视图。产品列显示短码，已付运费 checkbox 勾选/取消都弹确认框。支持生成取件单 PDF、批量标记已取货。
 
-1. **来件管理**
-2. **寄件管理**
-3. **历史档案**
-4. **产品管理**
+**寄件管理：** 未寄出 / 已寄出子视图。订单号列显示所有来件单号，未取货时附红色标注。
 
-### 来件管理
+**修改订单 Overlay：** 来件和收件人卡片可增删，保存前做数量校验。`paid_status` 只能从表格 checkbox 修改。
 
-子视图：未取货 / 已取货，标签页实时显示数量 `未取货 (n)`
+**历史档案：** PDF 直接在浏览器生成并打开，存档到 R2。
 
-表格列：checkbox | 填表人 | 订单号 | 取货码 | [产品列（显示短码）] | 日期 | 已付运费
+**产品管理：** 每个产品有永久 `uid`，改名或改 id 时自动同步所有订单里的引用。
 
-- 每张来件单占一行，同一大订单的填表人和日期用 rowspan 合并
-- 产品列按来件单分行显示，底部合计行统计所有来件单产品总数
-- 动态产品列表头显示产品短码（ID），PDF 取件单同样使用短码
-- 数量校验提示显示产品全名
-- 已付运费列：checkbox，勾选和取消都弹确认框，取消弹窗时 checkbox 恢复原状，数据不变
-- 工具栏：生成取件单（PDF）、已取货、编辑、刷新
-- "未取货"子标签页实时显示未取货订单数量，格式为 `未取货 (n)`
+**搜索：** 输入关键字实时过滤所有订单，结果分四个区块：未取货、已取货、未寄出、已寄出，每个区块标题显示匹配数量。支持按订单号、取货码、收件人姓名、电话、地址、填表人搜索。切换到搜索 tab 或订单数据刷新后自动更新结果。每个区块都有修改和删除操作按钮。
 
-### 寄件管理
-
-子视图：未寄出 / 已寄出，标签页实时显示数量 `未寄出 (n)`
-
-表格列：checkbox | 填表人 | 订单号 | 收件人 | 地址 | 电话 | [产品列] | 备注 | 已付运费
-
-- 订单号列显示所有来件单号，换行排列，未取货时附红色 `(未取货)` 标签
-- 已取货订单排前面，未取货排后面
-- 底部合计行
-
-### 修改订单 Overlay
-
-- 来件信息卡片（可增删）
-- 收件人列表（可增删）
-- 保存前做数量校验，不匹配弹确认框
-- 不含 `paid_status` 字段，只能从表格 checkbox 修改
-
-### 历史档案
-
-PDF 直接在浏览器生成并打开，不再存档到云端。历史档案分页目前无存档功能。
-
-### 产品管理
-
-- 表格显示产品短码（ID）和全称
-- 每个产品有 `uid`（永久不变），用于追踪改名或改 id
-- 保存前检查重复 id 和 id 冲突，有冲突直接报错阻断
-- 有变更时先同步 D1 里所有订单的 `product_id` 和 `product_name`，再保存产品列表
-- 首次保存会给没有 `uid` 的产品补上，建议部署后先不改产品，直接点一次保存
-
-### PDF 生成
-
-使用 html2pdf.js（CDN）。取件单 portrait，寄件单 landscape。产品列表头显示短码，PDF 同样使用短码。
+**添加订单 Overlay：** 与修改 overlay 结构相同，内嵌 AI 填单助手（含 warnings 提示），提交后自动刷新订单列表。
 
 
-## z-index 层级
+## Cloudflare Worker 部署
 
-| 层级 | 元素 |
+Worker 通过本地 `wrangler deploy` 部署，**不连接 GitHub**（自动部署会清空环境变量）。
+
+Worker 文件存放在本地 `worker-cloudflare/` 目录，已加入 `.gitignore`，不推送到 GitHub。
+
+所有变量（包括 `GEMINI_API_KEY`、`WECHAT_CORP_SECRET`）存在本地 `wrangler.toml` 的 `[vars]` 里，不推送到 GitHub。
+
+每次更新 Worker：
+```bash
+cd ~/Documents/fengjiezhuanyun/worker-cloudflare
+wrangler deploy
+```
+
+## 各平台部署方式
+
+| 组件 | 触发方式 |
 |---|---|
-| 960 | 确认弹窗、导出弹窗、数量校验弹窗、删除确认 |
-| 950 | 修改订单 overlay |
-| 900 | AI 聊天窗口、浮动按钮 |
-| 998 | 加载遮罩 |
-| 999 | Toast 提示 |
-
-
-## 设计规范
-
-- 字体：Noto Sans SC（Google Fonts CDN）
-- 主色：`#b8860b`（暗金色）
-- 背景：`#f5f0eb`（暖灰）
-- 卡片：白色，1px `#d4cdc4` 边框，8px 圆角
-- 危险操作：`#c0392b`
-- 成功操作：`#27ae60`
-- 移动端响应式：700px 以下 form-row 堆叠
-- index.html 新订单区域用金色边框与查找区域视觉区分
-
+| Cloudflare Pages（`pages/`） | push 到 GitHub main 自动部署 |
+| Render（`render/`） | push 到 GitHub main 自动部署（监听 `render/` 路径）|
+| Cloudflare Worker | 本地 `wrangler deploy`，不走 GitHub |
 
 ## 注意事项
 
-1. `ADMIN_TOKEN` 和 `GEMINI_API_KEY` 只存在 Cloudflare Worker 环境变量里，不在前端代码中
-2. `incoming` 是数组，不是对象，旧格式不兼容
-3. D1 里 boolean 值存为 0/1，Worker 读取时自动转换为 true/false
-4. `products` 表的 `uid` 字段是主键，`id` 字段有 UNIQUE 约束
-5. `/api/parse` 每次调用都实时读取 D1 里的产品列表和已有订单号，不缓存
-6. PDF 生成是纯前端，不存档，需要手动保存
-7. admin.html 的 `CONFIG.adminToken` 是 `fj_2025_xK9mP3`
-8. index.html 的 `CONFIG.adminToken` 保持空字符串即可，所有 index.html 需要的端点都是公开的
+1. `ADMIN_TOKEN` 和 `GEMINI_API_KEY` 只存在环境变量里，不在前端代码中
+2. `incoming` 是数组，不是对象
+3. D1 里 boolean 值存为 0/1，Worker 读取时自动转换
+4. Render 免费版会休眠，第一次请求可能慢 30-60 秒
+5. Render 重启后内存里的对话状态清空（30分钟超时也会清空）
+6. Render 出口 IP 如果变化，需要更新企业微信自建应用的"企业可信IP"
+7. Cloudflare Worker 里保留了微信 Webhook 相关代码，实际处理在 Render
+8. `external_userid` 是微信用户的唯一 ID，格式 `wm` 开头，用于修改模式的账号验证
+9. 修改模式下 Gemini 不检查订单号重复（`existingCodes` 传空数组）
+10. admin.html 的 `CONFIG.adminToken` 是 `fj_2025_xK9mP3`
+11. `existingCodes` 只收集 `express_code`，不含 `pickup_code`，避免取货码被误判为重复订单号
+12. 代码层面重复检查：正则提取数字后，还要通过 `/api/orders/by-code` 验证匹配的是 `express_code` 而非 `pickup_code`
+13. 微信端确认预览始终显示填表人，没有时显示"未填写"
+14. 网页端 `/api/parse` 的 warnings 由 Worker 代码计算，不依赖 Gemini，数量计算100%准确
+15. 网页端 AI 填单 Enter 键换行，发送必须点按钮
+16. AI 解析预览气泡：有 warnings 时显示黄色背景，正常时白色
