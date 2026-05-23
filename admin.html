@@ -111,6 +111,14 @@
   .spinner{width:40px;height:40px;border:3px solid #fff;border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   @media(max-width:700px){body{padding:12px;}.section{padding:14px;}.tab{padding:8px 8px;font-size:0.75rem;}.form-row{flex-direction:column;gap:8px;}.confirm-actions{flex-direction:column;}}
+  .add-chat-msg{padding:7px 10px;border-radius:8px;font-size:0.8rem;line-height:1.5;max-width:92%;white-space:pre-wrap;word-break:break-word;}
+  .add-chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end;}
+  .add-chat-msg.bot{background:var(--input-bg);border:1px solid var(--border);align-self:flex-start;}
+  .add-chat-msg.error{background:#fdecea;border:1px solid #f5c6cb;color:var(--danger);align-self:flex-start;}
+  .add-chat-msg.warn{background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);align-self:flex-start;}
+  .add-chat-confirm-btn{display:block;margin-top:6px;padding:5px 12px;background:var(--success);color:#fff;border:none;border-radius:4px;font-size:0.78rem;cursor:pointer;font-family:inherit;}
+  .add-chat-confirm-btn:hover{opacity:0.88;}
+  .search-section-title{font-weight:500;font-size:0.88rem;color:var(--accent);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -118,11 +126,15 @@
 
 <div id="adminView" class="container" style="display:none;">
   <h1>管理后台</h1>
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('incoming')">来件管理</button>
-    <button class="tab" onclick="switchTab('shipping')">寄件管理</button>
-    <button class="tab" onclick="switchTab('history')">历史档案</button>
-    <button class="tab" onclick="switchTab('products')">产品管理</button>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:0;">
+    <div class="tabs" style="margin-bottom:0;flex:1;">
+      <button class="tab active" onclick="switchTab('incoming')">来件管理</button>
+      <button class="tab" onclick="switchTab('shipping')">寄件管理</button>
+      <button class="tab" onclick="switchTab('history')">历史档案</button>
+      <button class="tab" onclick="switchTab('products')">产品管理</button>
+      <button class="tab" onclick="switchTab('search')">🔍 搜索</button>
+    </div>
+    <button class="btn btn-accent" style="margin-bottom:2px;margin-left:12px;white-space:nowrap;flex-shrink:0;" onclick="openAddOrderOverlay()">+ 添加订单</button>
   </div>
 
   <!-- 来件管理 -->
@@ -198,6 +210,20 @@
   </div>
 </div>
 
+  <!-- 搜索 -->
+  <div id="tab-search" class="tab-content">
+    <div class="section" style="margin-bottom:12px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="searchInput" placeholder="搜索订单号、收件人姓名、电话、地址…" style="flex:1;" oninput="runSearch()" onkeydown="if(event.key==='Escape')clearSearch()">
+        <button class="btn btn-outline" onclick="clearSearch()">清空</button>
+      </div>
+    </div>
+    <div id="searchResults">
+      <div class="empty-state" style="padding:24px;">输入关键字开始搜索</div>
+    </div>
+  </div>
+</div>
+
 <!-- 导出来件提货单弹窗 -->
 <div class="modal-overlay" id="exportModal"><div class="modal"><h3>生成取件单</h3><div class="form-group"><label>提货日期</label><input type="date" id="exportDate"></div><div class="form-group"><label>提货人</label><input type="text" id="exportPerson" placeholder="提货人姓名"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('exportModal')">取消</button><button class="btn btn-accent" onclick="doExportIncomingPDF()">生成</button></div></div></div>
 
@@ -253,6 +279,45 @@
 </div>
 </div>
 
+<!-- 添加订单 overlay -->
+<div class="edit-overlay" id="addOrderOverlay">
+<div class="edit-panel">
+  <h3>添加新订单</h3>
+  <div class="edit-section">
+    <div class="edit-section-title">基本信息</div>
+    <div class="form-row">
+      <div class="form-group"><label>填表人称呼</label><input type="text" id="addCreatedBy" placeholder="例如：小陈"></div>
+    </div>
+  </div>
+  <div class="edit-section">
+    <div class="edit-section-title">来件信息</div>
+    <div id="addIncomingList"></div>
+    <button class="add-btn" onclick="addAIncomingBlock()" style="margin-top:4px;">+ 添加来件单</button>
+  </div>
+  <div class="edit-section">
+    <div class="edit-section-title">收件人信息</div>
+    <div id="addRecipientList"></div>
+    <button class="add-btn" onclick="addARecipient()">+ 添加收件人</button>
+  </div>
+  <div id="addValidationBox" class="validation-box"></div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;">
+    <button class="btn btn-accent" style="flex:1;padding:10px;" onclick="submitAddOrder()">提交订单</button>
+    <button class="btn btn-outline" style="flex:1;padding:10px;" onclick="closeAddOrderOverlay()">取消</button>
+  </div>
+  <!-- AI 助手 -->
+  <div style="border-top:1px solid var(--border);padding-top:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:0.85rem;font-weight:500;color:var(--accent);">💬 AI 智能填单</span>
+    </div>
+    <div id="addChatMessages" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px;padding:2px;"></div>
+    <div style="display:flex;gap:8px;">
+      <textarea id="addChatInput" placeholder="粘贴订单信息…" style="flex:1;height:56px;resize:none;font-size:0.82rem;" onkeydown="addChatKeyDown(event)"></textarea>
+      <button class="btn btn-accent" id="addChatSendBtn" onclick="sendAddChatMessage()" style="align-self:flex-end;padding:6px 14px;">发送</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <div id="pdfRender" style="position:absolute;left:-9999px;top:0;width:800px;"></div>
 <div class="toast" id="toast"></div>
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
@@ -270,7 +335,7 @@ const HEADERS = {
   'Authorization': `Bearer ${CONFIG.adminToken}`
 };
 const HISTORY_PICKUP='history_pickup', HISTORY_SHIPPING='history_shipping';
-const TAB_NAMES=['incoming','shipping','history','products'];
+const TAB_NAMES=['incoming','shipping','history','products','search'];
 
 let orders=[],products=[],pendingExportIds=[];
 let incView='active',shpView='active',histView='pickup';
@@ -304,7 +369,7 @@ async function loadOrders(){
   orders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   renderAll();
 }
-function renderAll(){renderIncoming();renderShipping();}
+function renderAll(){renderIncoming();renderShipping();const sq=document.getElementById('searchInput');if(sq&&sq.value.trim())runSearch();}
 
 function prodIdsIn(list){const s=new Set();list.forEach(o=>o.incoming.forEach(inc=>inc.products.forEach(p=>s.add(p.product_id))));return[...s].sort();}
 function prodIdsOut(list){const s=new Set();list.forEach(o=>o.outgoing.forEach(r=>r.products.forEach(p=>s.add(p.product_id))));return[...s].sort();}
@@ -936,6 +1001,305 @@ async function saveProducts(){
   showLoading(false);
 }
 
+// ===== Search =====
+function runSearch(){
+  const q=(document.getElementById('searchInput').value||'').trim().toLowerCase();
+  const container=document.getElementById('searchResults');
+  if(!q){container.innerHTML='<div class="empty-state" style="padding:24px;">输入关键字开始搜索</div>';return;}
+
+  // Match orders where any field contains query
+  const matched=orders.filter(o=>{
+    const codes=o.incoming.map(i=>i.express_code+' '+i.pickup_code).join(' ').toLowerCase();
+    const recipients=o.outgoing.map(r=>r.name+' '+r.phone+' '+r.address+' '+r.notes).join(' ').toLowerCase();
+    const by=(o.created_by||'').toLowerCase();
+    return codes.includes(q)||recipients.includes(q)||by.includes(q);
+  });
+
+  if(!matched.length){container.innerHTML='<div class="empty-state" style="padding:24px;">没有找到匹配的订单</div>';return;}
+
+  // Build two sections: incoming view + shipping view
+  const pidsIn=prodIdsIn(matched);
+  const pidsOut=prodIdsOut(matched);
+
+  let h='';
+
+  // --- Incoming section ---
+  h+='<div class="search-section-title">来件管理</div>';
+  h+='<div class="section" style="padding:0;overflow-x:auto;"><table class="data-table"><thead><tr>';
+  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
+  pidsIn.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>日期</th><th>已付运费</th><th>操作</th></tr></thead><tbody>';
+  matched.forEach(o=>{
+    const rowspan=o.incoming.length||1;
+    o.incoming.forEach((inc,ii)=>{
+      h+='<tr>';
+      if(ii===0){
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
+      }
+      h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
+      pidsIn.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
+      if(ii===0){
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button></td>`;
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table></div>';
+
+  // --- Shipping section ---
+  h+='<div class="search-section-title" style="margin-top:20px;">寄件管理</div>';
+  h+='<div class="section" style="padding:0;overflow-x:auto;"><table class="data-table"><thead><tr>';
+  h+='<th>填表人</th><th>订单号</th><th>收件人</th><th>地址</th><th>电话</th>';
+  pidsOut.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
+  h+='<th>备注</th><th>已付运费</th><th>操作</th></tr></thead><tbody>';
+  matched.forEach(o=>{
+    const rl=o.outgoing.length||1;
+    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
+    if(!o.outgoing.length){
+      h+=`<tr><td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pidsOut.length+1}">无收件人</td><td></td><td><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button></td></tr>`;
+      return;
+    }
+    o.outgoing.forEach((r,ri)=>{
+      h+='<tr>';
+      if(ri===0){
+        h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
+      }
+      h+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
+      pidsOut.forEach(id=>{const x=r.products.find(z=>z.product_id===id);h+=`<td class="qty-cell">${x?x.quantity:''}</td>`;});
+      h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
+      if(ri===0){
+        h+=`<td rowspan="${rl}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=`<td rowspan="${rl}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button></td>`;
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table></div>';
+
+  container.innerHTML=h;
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('searchResults').innerHTML='<div class="empty-state" style="padding:24px;">输入关键字开始搜索</div>';
+}
+
+// ===== Add Order Overlay =====
+let aRecipientCount=0,aIncomingBlockCount=0;
+
+function openAddOrderOverlay(){
+  aRecipientCount=0;aIncomingBlockCount=0;
+  document.getElementById('addCreatedBy').value='';
+  document.getElementById('addIncomingList').innerHTML='';
+  document.getElementById('addRecipientList').innerHTML='';
+  document.getElementById('addValidationBox').className='validation-box';
+  document.getElementById('addValidationBox').innerHTML='';
+  document.getElementById('addChatMessages').innerHTML='';
+  document.getElementById('addChatInput').value='';
+  addAIncomingBlock();
+  addARecipient();
+  document.getElementById('addOrderOverlay').classList.add('active');
+}
+
+function closeAddOrderOverlay(){
+  document.getElementById('addOrderOverlay').classList.remove('active');
+}
+
+function addAIncomingBlock(data=null){
+  aIncomingBlockCount++;const n=aIncomingBlockCount;
+  const c=document.getElementById('addIncomingList');const d=document.createElement('div');
+  d.className='incoming-block';d.id=`aib-${n}`;
+  d.innerHTML=`<div class="incoming-block-header"><span>来件单 #${n}</span><button class="btn btn-danger btn-sm" onclick="document.getElementById('aib-${n}').remove()">删除</button></div>
+    <div class="form-row"><div class="form-group"><label>订单号</label><input type="text" class="aib-express" value="${esc(data?.express_code||'')}" placeholder="订单号"></div><div class="form-group"><label>取货码</label><input type="text" class="aib-pickup" value="${esc(data?.pickup_code||'')}" placeholder="取货码"></div></div>
+    <label style="font-size:0.8rem;color:var(--text-light);display:block;margin-bottom:4px;">来件产品</label><div class="aib-products"></div>
+    <button class="btn btn-outline btn-sm" onclick="addAIncomingProduct(${n})" style="margin-top:4px;">+ 添加产品</button>`;
+  c.appendChild(d);
+  if(data&&data.products&&data.products.length) data.products.forEach(p=>addAIncomingProduct(n,p.product_id,p.quantity));
+  else addAIncomingProduct(n);
+}
+
+function addAIncomingProduct(blockN,pid='',qty=''){
+  const block=document.getElementById(`aib-${blockN}`);if(!block)return;
+  const c=block.querySelector('.aib-products');const d=document.createElement('div');d.className='e-product-line';
+  d.innerHTML=`<select><option value="">请选择产品</option>${productOpts(pid)}</select><input type="number" min="1" value="${qty||''}" placeholder="数量" style="width:auto;flex:1;"><button onclick="this.parentElement.remove()">×</button>`;
+  c.appendChild(d);
+}
+
+function addARecipient(data=null){
+  aRecipientCount++;const n=aRecipientCount;const c=document.getElementById('addRecipientList');const d=document.createElement('div');
+  d.className='recipient-card';d.id=`arcp-${n}`;
+  d.innerHTML=`<div class="recipient-header"><span>收件人 #${n}</span><button class="btn btn-danger btn-sm" onclick="document.getElementById('arcp-${n}').remove()">删除</button></div>
+    <div class="form-row"><div class="form-group"><label>姓名</label><input type="text" class="r-name" value="${esc(data?.name||'')}"></div><div class="form-group"><label>电话</label><input type="text" class="r-phone" value="${esc(data?.phone||'')}"></div></div>
+    <div class="form-group" style="margin-bottom:12px;"><label>地址</label><input type="text" class="r-address" value="${esc(data?.address||'')}"></div>
+    <label style="font-size:0.8rem;color:var(--text-light);display:block;margin-bottom:4px;">产品</label><div class="r-products"></div>
+    <button class="btn btn-outline btn-sm" onclick="addARcpProduct(${n})" style="margin-top:4px;margin-bottom:8px;">+ 添加产品</button>
+    <div class="form-group"><label>备注</label><textarea class="r-notes">${esc(data?.notes||'')}</textarea></div>`;
+  c.appendChild(d);
+  if(data&&data.products&&data.products.length) data.products.forEach(p=>addARcpProduct(n,p.product_id,p.quantity));
+  else addARcpProduct(n);
+}
+
+function addARcpProduct(n,pid='',qty=''){
+  const card=document.getElementById(`arcp-${n}`);if(!card)return;
+  const c=card.querySelector('.r-products');const d=document.createElement('div');d.className='e-product-line';
+  d.innerHTML=`<select><option value="">请选择产品</option>${productOpts(pid)}</select><input type="number" min="1" value="${qty||''}" placeholder="数量" style="width:auto;flex:1;"><button onclick="this.parentElement.remove()">×</button>`;
+  c.appendChild(d);
+}
+
+function collectAddData(){
+  const createdBy=document.getElementById('addCreatedBy').value.trim();
+  if(!createdBy){showToast('请填写填表人称呼','error');return null;}
+  const incoming=[];
+  for(const block of document.querySelectorAll('#addIncomingList .incoming-block')){
+    const expressCode=block.querySelector('.aib-express').value.trim();
+    const pickupCode=block.querySelector('.aib-pickup').value.trim();
+    if(!expressCode||!pickupCode){showToast('请填写所有来件单的订单号和取货码','error');return null;}
+    const blockProducts=[];
+    block.querySelectorAll('.aib-products .e-product-line').forEach(l=>{
+      const s=l.querySelector('select');const q=parseInt(l.querySelector('input').value)||0;
+      if(s.value&&q>0){const prod=products.find(p=>p.id===s.value);blockProducts.push({product_id:s.value,product_name:prod?prod.product_name:s.value,quantity:q});}
+    });
+    if(!blockProducts.length){showToast('每张来件单至少需要一个产品','error');return null;}
+    incoming.push({express_code:expressCode,pickup_code:pickupCode,products:blockProducts});
+  }
+  if(!incoming.length){showToast('请至少添加一张来件单','error');return null;}
+  const outgoing=[];
+  document.querySelectorAll('#addRecipientList .recipient-card').forEach(card=>{
+    const name=card.querySelector('.r-name').value.trim();const phone=card.querySelector('.r-phone').value.trim();
+    const address=card.querySelector('.r-address').value.trim();const notes=card.querySelector('.r-notes').value.trim();
+    const rp=[];
+    card.querySelectorAll('.r-products .e-product-line').forEach(l=>{
+      const s=l.querySelector('select');const q=parseInt(l.querySelector('input').value)||0;
+      if(s.value&&q>0){const prod=products.find(p=>p.id===s.value);rp.push({product_id:s.value,product_name:prod?prod.product_name:s.value,quantity:q});}
+    });
+    if(name||phone||address||rp.length||notes) outgoing.push({name,phone,address,products:rp,notes});
+  });
+  return{
+    id:'ORD_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),
+    created_at:new Date().toISOString(),
+    created_by:createdBy,
+    paid_status:false,picked_up:false,shipped:false,
+    source:'manual',incoming,outgoing
+  };
+}
+
+function getAddQtyMismatches(){
+  const inc={},out={};
+  document.querySelectorAll('#addIncomingList .incoming-block').forEach(block=>{
+    block.querySelectorAll('.aib-products .e-product-line').forEach(l=>{
+      const id=l.querySelector('select').value;const q=parseInt(l.querySelector('input').value)||0;
+      if(id&&q>0)inc[id]=(inc[id]||0)+q;
+    });
+  });
+  document.querySelectorAll('#addRecipientList .r-products .e-product-line').forEach(l=>{
+    const id=l.querySelector('select').value;const q=parseInt(l.querySelector('input').value)||0;
+    if(id&&q>0)out[id]=(out[id]||0)+q;
+  });
+  const all=new Set([...Object.keys(inc),...Object.keys(out)]);const mm=[];
+  for(const id of all){const i=inc[id]||0;const o=out[id]||0;if(i!==o)mm.push(`${pn(id)}: 来件 ${i}, 收件合计 ${o}`);}
+  return mm;
+}
+
+let pendingAddSubmit=false;
+async function submitAddOrder(force=false){
+  const data=collectAddData();if(!data)return;
+  if(!force){
+    const mm=getAddQtyMismatches();
+    if(mm.length){
+      document.getElementById('addValidationBox').className='validation-box warn';
+      document.getElementById('addValidationBox').innerHTML='<strong>产品数量不匹配：</strong><br>'+mm.map(m=>esc(m)).join('<br>')+'<br><br><button class="btn btn-accent btn-sm" onclick="submitAddOrder(true)" style="margin-top:6px;">仍然提交</button>';
+      return;
+    }
+  }
+  showLoading(true);
+  try{
+    await apiFetch('/api/orders',{method:'POST',body:JSON.stringify(data)});
+    await loadOrders();
+    closeAddOrderOverlay();
+    showToast('订单添加成功','success');
+  }catch(e){showToast('添加失败: '+e.message,'error');}
+  showLoading(false);
+}
+
+// ===== Add Order AI Chat =====
+function addChatKeyDown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAddChatMessage();}}
+
+function addChatMsg(text,type){
+  const c=document.getElementById('addChatMessages');
+  const d=document.createElement('div');
+  d.className=`add-chat-msg ${type}`;
+  d.textContent=text;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
+}
+function addChatMsgHtml(html,type){
+  const c=document.getElementById('addChatMessages');
+  const d=document.createElement('div');
+  d.className=`add-chat-msg ${type}`;
+  d.innerHTML=html;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
+}
+
+async function sendAddChatMessage(){
+  const input=document.getElementById('addChatInput');
+  const btn=document.getElementById('addChatSendBtn');
+  const text=input.value.trim();if(!text)return;
+  input.value='';btn.disabled=true;
+  addChatMsg(text,'user');
+  const loading=addChatMsg('正在解析…','bot');
+  try{
+    const res=await fetch(`${API}/api/parse`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data=await res.json();
+    loading.remove();
+    if(!data.valid){
+      addChatMsg(data.error_reply||'无法识别订单信息，请补充完整后重试。','error');
+      btn.disabled=false;return;
+    }
+    const preview=buildAddPreview(data);
+    const msgEl=addChatMsgHtml(preview+`<button class="add-chat-confirm-btn" onclick="applyAddParsedOrder(this)">✅ 确认填入表单</button>`,'bot');
+    msgEl._parsedData=data;
+    if(data.warnings&&data.warnings.length>0){
+      addChatMsgHtml(`<strong>⚠️ 产品数量不匹配</strong><br>${data.warnings.map(w=>esc(w)).join('<br>')}`, 'warn');
+    }
+  }catch(e){
+    loading.remove();
+    addChatMsg('解析失败，请稍后再试。','error');
+  }
+  btn.disabled=false;
+}
+
+function buildAddPreview(data){
+  const lines=[];
+  if(data.created_by)lines.push(`填表人：${esc(data.created_by)}`);
+  (data.incoming||[]).forEach((inc,i)=>{
+    lines.push(`<br>来件单 ${i+1}：${esc(inc.express_code)}（取货码：${esc(inc.pickup_code)}）`);
+    (inc.products||[]).forEach(p=>lines.push(`&nbsp;&nbsp;${esc(p.product_name)} × ${p.quantity}`));
+  });
+  (data.outgoing||[]).forEach((r,i)=>{
+    lines.push(`<br>收件人 ${i+1}：${esc(r.name)}&nbsp;&nbsp;${esc(r.phone)}`);
+    lines.push(`&nbsp;&nbsp;${esc(r.address)}`);
+    (r.products||[]).forEach(p=>lines.push(`&nbsp;&nbsp;${esc(p.product_name)} × ${p.quantity}`));
+    if(r.notes)lines.push(`&nbsp;&nbsp;备注：${esc(r.notes)}`);
+  });
+  return`<strong>解析结果：</strong><br>${lines.join('<br>')}`;
+}
+
+function applyAddParsedOrder(btn){
+  const msgEl=btn.closest('.add-chat-msg');
+  const data=msgEl._parsedData;if(!data)return;
+  if(data.created_by)document.getElementById('addCreatedBy').value=data.created_by;
+  document.getElementById('addIncomingList').innerHTML='';aIncomingBlockCount=0;
+  (data.incoming||[]).forEach(inc=>addAIncomingBlock(inc));
+  if(!data.incoming||!data.incoming.length)addAIncomingBlock();
+  document.getElementById('addRecipientList').innerHTML='';aRecipientCount=0;
+  (data.outgoing||[]).forEach(r=>addARecipient(r));
+  if(!data.outgoing||!data.outgoing.length)addARecipient();
+  btn.textContent='✅ 已填入表单';btn.disabled=true;
+  const hasWarnings=data.warnings&&data.warnings.length>0;
+  showToast(hasWarnings?'已填入，请核对产品数量后提交':'订单信息已填入，请检查后提交','success');
+}
+
 // ===== Tabs =====
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -943,6 +1307,7 @@ function switchTab(name){
   document.getElementById(`tab-${name}`).classList.add('active');
   const i=TAB_NAMES.indexOf(name);if(i>=0)document.querySelectorAll('.tab')[i].classList.add('active');
   if(name==='history')loadHistory();
+  if(name==='search'){const q=document.getElementById('searchInput').value.trim();if(q)runSearch();}
 }
 function closeModal(id){document.getElementById(id).classList.remove('active');}
 function showToast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);}
