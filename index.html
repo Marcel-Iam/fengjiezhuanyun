@@ -1338,12 +1338,6 @@ async function sendChatMessage() {
       return;
     }
 
-    // Show warnings if any
-    if (data.warnings && data.warnings.length > 0) {
-      const warnHtml = `<strong>⚠️ 注意：产品数量不匹配</strong><br>${data.warnings.map(w => esc(w)).join('<br>')}`;
-      addChatMsgHtml(warnHtml, 'warn');
-    }
-
     // Show preview
     const preview = buildPreview(data);
     const msgEl = addChatMsgHtml(
@@ -1351,6 +1345,12 @@ async function sendChatMessage() {
       'bot'
     );
     msgEl._parsedData = data;
+
+    // Show warnings after preview
+    if (data.warnings && data.warnings.length > 0) {
+      const warnHtml = `<strong>⚠️ 产品数量不匹配</strong><br>${data.warnings.map(w => esc(w)).join('<br>')}`;
+      addChatMsgHtml(warnHtml, 'warn');
+    }
 
   } catch (e) {
     loadingMsg.remove();
@@ -1383,32 +1383,20 @@ function applyParsedOrder(btn) {
   const data  = msgEl._parsedData;
   if (!data) return;
 
-  // If there are warnings, append a note to each recipient's notes
   const hasWarnings = data.warnings && data.warnings.length > 0;
-  const warningNote = hasWarnings
-    ? '【请核对产品数量：' + data.warnings.join('；') + '】'
-    : '';
-
-  const patchedData = hasWarnings ? {
-    ...data,
-    outgoing: (data.outgoing || []).map(r => ({
-      ...r,
-      notes: r.notes ? r.notes + ' ' + warningNote : warningNote
-    }))
-  } : data;
 
   // Fill form
-  if (patchedData.created_by) document.getElementById('createdBy').value = patchedData.created_by;
+  if (data.created_by) document.getElementById('createdBy').value = data.created_by;
 
   document.getElementById('incomingList').innerHTML = '';
   incomingBlockCount = 0;
-  (patchedData.incoming || []).forEach(inc => addIncomingBlock(inc));
-  if (!patchedData.incoming || !patchedData.incoming.length) addIncomingBlock();
+  (data.incoming || []).forEach(inc => addIncomingBlock(inc));
+  if (!data.incoming || !data.incoming.length) addIncomingBlock();
 
   document.getElementById('recipientList').innerHTML = '';
   recipientCount = 0;
-  (patchedData.outgoing || []).forEach(r => addRecipient(r));
-  if (!patchedData.outgoing || !patchedData.outgoing.length) addRecipient();
+  (data.outgoing || []).forEach(r => addRecipient(r));
+  if (!data.outgoing || !data.outgoing.length) addRecipient();
 
   btn.textContent = '✅ 已填入表单';
   btn.disabled = true;
@@ -1416,8 +1404,9 @@ function applyParsedOrder(btn) {
   // Close chat and scroll to form
   document.getElementById('chatWindow').classList.remove('open');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
   if (hasWarnings) {
-    showToast('订单已填入，请核对产品数量后提交', 'warn');
+    showToast('产品数量有不匹配，请在对应收件人备注中写明特殊情况', 'warn');
   } else {
     showToast('订单信息已填入，请检查后提交', 'success');
   }
