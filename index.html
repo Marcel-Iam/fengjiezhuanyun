@@ -1285,10 +1285,7 @@ function toggleChat() {
 }
 
 function chatKeyDown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendChatMessage();
-  }
+  // Enter just inserts a newline; use the send button to submit
 }
 
 function addChatMsg(text, type) {

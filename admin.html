@@ -1243,7 +1243,7 @@ async function submitAddOrder(force=false){
 }
 
 // ===== Add Order AI Chat =====
-function addChatKeyDown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAddChatMessage();}}
+function addChatKeyDown(e){ /* Enter inserts newline; use send button */ }
 
 function addChatMsg(text,type){
   const c=document.getElementById('addChatMessages');
