@@ -120,6 +120,7 @@
   .add-chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end;}
   .add-chat-msg.bot{background:var(--input-bg);border:1px solid var(--border);align-self:flex-start;}
   .add-chat-msg.error{background:#fdecea;border:1px solid #f5c6cb;color:var(--danger);align-self:flex-start;}
+  .add-chat-msg.warn-preview{background:var(--warn-bg);border:1px solid var(--warn-border);}
   .add-chat-msg.warn{background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);align-self:flex-start;}
   .add-chat-confirm-btn{display:block;margin-top:6px;padding:5px 12px;background:var(--success);color:#fff;border:none;border-radius:4px;font-size:0.78rem;cursor:pointer;font-family:inherit;}
   .add-chat-confirm-btn:hover{opacity:0.88;}
@@ -1276,7 +1277,8 @@ async function sendAddChatMessage(){
       btn.disabled=false;return;
     }
     const preview=buildAddPreview(data);
-    const msgEl=addChatMsgHtml(preview+`<button class="add-chat-confirm-btn" onclick="applyAddParsedOrder(this)">✅ 确认填入表单</button>`,'bot');
+    const hasW=data.warnings&&data.warnings.length>0;
+    const msgEl=addChatMsgHtml(preview+`<button class="add-chat-confirm-btn" onclick="applyAddParsedOrder(this)">✅ 确认填入表单</button>`,hasW?'add-chat-msg warn-preview':'bot');
     msgEl._parsedData=data;
     if(data.warnings&&data.warnings.length>0){
       addChatMsgHtml(`<strong>⚠️ 注意</strong><br>${data.warnings.map(w=>esc(w)).join('<br>')}`, 'warn');

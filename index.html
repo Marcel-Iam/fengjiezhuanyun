@@ -569,6 +569,10 @@
     align-self: flex-start;
   }
 
+  .chat-msg.warn-preview {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+  }
   .chat-msg.warn {
     background: var(--warn-bg);
     border: 1px solid var(--warn-border);
@@ -1335,11 +1339,12 @@ async function sendChatMessage() {
       return;
     }
 
-    // Show preview
+    // Show preview — yellow tint if there are warnings
     const preview = buildPreview(data);
+    const hasW = data.warnings && data.warnings.length > 0;
     const msgEl = addChatMsgHtml(
       preview + `<button class="chat-confirm-btn" onclick="applyParsedOrder(this)">✅ 确认填入表单</button>`,
-      'bot'
+      hasW ? 'bot warn-preview' : 'bot'
     );
     msgEl._parsedData = data;
 
