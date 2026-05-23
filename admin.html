@@ -1279,7 +1279,7 @@ async function sendAddChatMessage(){
     const msgEl=addChatMsgHtml(preview+`<button class="add-chat-confirm-btn" onclick="applyAddParsedOrder(this)">✅ 确认填入表单</button>`,'bot');
     msgEl._parsedData=data;
     if(data.warnings&&data.warnings.length>0){
-      addChatMsgHtml(`<strong>⚠️ 产品数量不匹配</strong><br>${data.warnings.map(w=>esc(w)).join('<br>')}`, 'warn');
+      addChatMsgHtml(`<strong>⚠️ 注意</strong><br>${data.warnings.map(w=>esc(w)).join('<br>')}`, 'warn');
     }
   }catch(e){
     loading.remove();

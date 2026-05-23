@@ -1345,7 +1345,7 @@ async function sendChatMessage() {
 
     // Show warnings after preview
     if (data.warnings && data.warnings.length > 0) {
-      const warnHtml = `<strong>⚠️ 产品数量不匹配</strong><br>${data.warnings.map(w => esc(w)).join('<br>')}`;
+      const warnHtml = `<strong>⚠️ 注意</strong><br>${data.warnings.map(w => esc(w)).join('<br>')}`;
       addChatMsgHtml(warnHtml, 'warn');
     }
 
