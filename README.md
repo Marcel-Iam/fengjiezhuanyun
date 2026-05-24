@@ -192,6 +192,8 @@ Render 解密 kf_msg_or_event 事件
     ↓ 不同账号重复 → 拒绝
     ↓ 无重复 → 正常流程
     ↓
+先发"收到你的信息，系统正在分析，请稍等…"（取消/确认等简单指令跳过）
+    ↓
 Gemini 解析，多轮对话状态机
     ↓
 信息完整 → 发送确认预览
@@ -354,7 +356,7 @@ wrangler deploy
 1. `ADMIN_TOKEN` 和 `GEMINI_API_KEY` 只存在环境变量里，不在前端代码中
 2. `incoming` 是数组，不是对象
 3. D1 里 boolean 值存为 0/1，Worker 读取时自动转换
-4. Render 免费版会休眠，第一次请求可能慢 30-60 秒
+4. Render 免费版会休眠，用 cron-job.org 每10分钟 ping 根目录保持唤醒（`https://fengjiezhuanyun-render.onrender.com`）
 5. Render 重启后内存里的对话状态清空（30分钟超时也会清空）
 6. Render 出口 IP 如果变化，需要更新企业微信自建应用的"企业可信IP"
 7. Cloudflare Worker 里保留了微信 Webhook 相关代码，实际处理在 Render
@@ -367,3 +369,4 @@ wrangler deploy
 14. 网页端 `/api/parse` 的 warnings 由 Worker 代码计算，不依赖 Gemini，数量计算100%准确
 15. 网页端 AI 填单 Enter 键换行，发送必须点按钮
 16. AI 解析预览气泡：有 warnings 时显示黄色背景，正常时白色
+17. 微信端 Gemini 响应约 20 秒（免费模型 + Render Ohio 节点延迟），收到消息后先发确认提示改善体感
