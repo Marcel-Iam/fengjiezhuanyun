@@ -169,6 +169,8 @@ async function syncAndProcessMessages(openKfId, token) {
 // ============================================================
 
 async function handleUserMessage(text, userId, openKfId, productList, existingCodes) {
+  const tMsg = Date.now();
+  console.log(`[timing] handleUserMessage start, text length: ${text.length}`);
   const stateKey = `state_${userId}`;
 
   // 确保会话处于服务中状态
@@ -414,6 +416,7 @@ ${text}
 12. 如果客户说要修改、更改、变更已有订单，不要尝试处理，直接回复：修改订单请通过以下链接操作：https://marcel-iam.github.io/fengjiezhuanyun/ ，在页面上方输入订单号即可查找和修改
 13. 如果客户发来的新消息里包含订单号，且与已有 partial_data 里的订单号不同，用新消息的信息完全替换旧信息，不要合并`;
 
+  const t0 = Date.now();
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
@@ -426,6 +429,7 @@ ${text}
     }
   );
 
+  console.log(`[timing] Gemini responded in ${Date.now() - t0}ms`);
   if (!res.ok) { console.error('Gemini error:', await res.text()); return null; }
   const data = await res.json();
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
