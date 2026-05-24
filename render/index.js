@@ -171,6 +171,13 @@ async function syncAndProcessMessages(openKfId, token) {
 async function handleUserMessage(text, userId, openKfId, productList, existingCodes) {
   const tMsg = Date.now();
   console.log(`[timing] handleUserMessage start, text length: ${text.length}`);
+
+  // Send immediate acknowledgement before any async work
+  const cancelWords = ['取消', '重新来', '重置', '算了', '确认', 'yes'];
+  const isSimpleReply = cancelWords.some(w => text.trim() === w || text.trim().toLowerCase() === w);
+  if (!isSimpleReply) {
+    await sendWechatMsg(userId, openKfId, '收到你的信息，系统正在分析，请稍等…');
+  }
   const stateKey = `state_${userId}`;
 
   // 确保会话处于服务中状态
