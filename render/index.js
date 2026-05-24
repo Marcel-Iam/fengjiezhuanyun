@@ -36,7 +36,7 @@ app.get('/WW_verify_tBq5D4siarKD8kCW.txt', (req, res) => {
 });
 
 // 健康检查
-app.get('/', (req, res) => res.send('OK'));
+app.get('/', (req, res) => { console.log('[ping] health check'); res.send('OK'); });
 
 // 微信 Webhook GET 验证
 app.get('/wx', async (req, res) => {
