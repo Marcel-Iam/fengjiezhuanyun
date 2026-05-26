@@ -283,7 +283,7 @@ Gemini 解析，多轮对话状态机
 
 ## AI 模型
 
-使用 `gemini-3.1-flash-lite-preview`，Google AI Studio 免费额度（RPD 500，RPM 20）。
+使用 `gemini-3.1-flash-lite`，Google AI Studio 免费额度（RPD 500，RPM 15）。
 
 网页端和微信端分别调用，每次实时读取最新产品列表和已有订单号（仅 `express_code`，不含 `pickup_code`）。
 
