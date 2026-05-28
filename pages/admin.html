@@ -81,7 +81,10 @@
   .data-table td.qty-cell{text-align:center;vertical-align:middle;}
   .data-table th.qty-cell{text-align:center;}
   /* Fixed info columns */
+  #shippingTableWrap .col-createdby{ min-width:4em; white-space:nowrap; }
+  #shippingTableWrap .col-ordercode{ min-width:8em; white-space:nowrap; }
   #shippingTableWrap .col-name{ white-space:nowrap; }
+  #shippingTableWrap .col-addr{ min-width:12em; }
   #shippingTableWrap .col-phone{ white-space:nowrap; min-width:7em; }
   /* Paid-status column: sticky right on all tables */
   .data-table th.paid-col,
@@ -496,7 +499,7 @@ function renderShipping(){
   const editMode=shpEditMode;const pids=prodIdsOut(list);const tot={};pids.forEach(id=>{tot[id]=0;});
   let h='<table class="data-table"><thead><tr>';
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'shipping\',this.checked)"></th>';
-  h+='<th>填表人</th><th>订单号</th><th class="col-name">收件人</th><th>地址</th><th class="col-phone">电话</th>';
+  h+='<th class="col-createdby">填表人</th><th class="col-ordercode">订单号</th><th class="col-name">收件人</th><th class="col-addr">地址</th><th class="col-phone">电话</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>备注</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
@@ -1188,7 +1191,7 @@ function buildSearchShippingTable(list){
   const actStyle='vertical-align:middle;white-space:nowrap;background:var(--card);';
   const actStyleInput='vertical-align:middle;background:var(--input-bg);';
   let h='<div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
-  h+='<th>填表人</th><th>订单号</th><th class="col-name">收件人</th><th>地址</th><th class="col-phone">电话</th>';
+  h+='<th class="col-createdby">填表人</th><th class="col-ordercode">订单号</th><th class="col-name">收件人</th><th class="col-addr">地址</th><th class="col-phone">电话</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>备注</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
   list.forEach(o=>{
