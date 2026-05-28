@@ -990,7 +990,13 @@ async function ensurePdfFont() {
   const res = await fetch(fontUrl, { headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
   if (!res.ok) throw new Error('字体加载失败');
   const buf = await res.arrayBuffer();
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const b64 = btoa(binary);
   pdfMake.fonts = {
     NotoSansSC: {
       normal:      b64,
