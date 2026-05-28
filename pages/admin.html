@@ -798,16 +798,16 @@ async function doExportIncomingPDF(){
 
     const docDef={
       pageOrientation:'portrait',pageMargins:[20,20,20,20],
-      defaultStyle:{font:'NotoSansSC',fontSize:9},
+      defaultStyle:{font:'NotoSansSC',fontSize:7.5},
       styles:{
-        th:{bold:true,fillColor:'#eeeeee',margin:[3,3,3,3]},
-        td:{margin:[3,3,3,3]},
-        total:{fillColor:'#f5f5f5',margin:[3,3,3,3]}
+        th:{bold:true,fillColor:'#eeeeee',margin:[2,2,2,2]},
+        td:{margin:[2,2,2,2]},
+        total:{fillColor:'#f5f5f5',margin:[2,2,2,2]}
       },
       content:[
-        {text:'来件提货单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
-        {text:`提货日期: ${pickupDate}　　提货人: ${pickupPerson}`,style:{fontSize:9},margin:[0,0,0,8]},
-        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>'auto')],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
+        {text:'来件提货单',style:{fontSize:12,bold:true,alignment:'center'},margin:[0,0,0,4]},
+        {text:`提货日期: ${pickupDate}　　提货人: ${pickupPerson}`,style:{fontSize:8},margin:[0,0,0,6]},
+        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>22)],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
       ]
     };
 
@@ -961,16 +961,16 @@ async function doExportShippingPDF(recipients){
     const today=new Date().toISOString().split('T')[0];
     const docDef={
       pageOrientation:'landscape',pageMargins:[15,15,15,15],
-      defaultStyle:{font:'NotoSansSC',fontSize:9},
+      defaultStyle:{font:'NotoSansSC',fontSize:7.5},
       styles:{
-        th:{bold:true,fillColor:'#eeeeee',margin:[3,3,3,3]},
-        td:{margin:[3,3,3,3]},
-        total:{fillColor:'#f5f5f5',margin:[3,3,3,3]}
+        th:{bold:true,fillColor:'#eeeeee',margin:[2,2,2,2]},
+        td:{margin:[2,2,2,2]},
+        total:{fillColor:'#f5f5f5',margin:[2,2,2,2]}
       },
       content:[
-        {text:'寄件单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
-        {text:`日期: ${today}`,style:{fontSize:9},margin:[0,0,0,8]},
-        {table:{headerRows:1,widths:['auto','*','auto',...pids.map(()=>'auto'),'auto'],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
+        {text:'寄件单',style:{fontSize:12,bold:true,alignment:'center'},margin:[0,0,0,4]},
+        {text:`日期: ${today}`,style:{fontSize:8},margin:[0,0,0,6]},
+        {table:{headerRows:1,widths:['auto','*','auto',...pids.map(()=>22),'auto'],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
       ]
     };
 
