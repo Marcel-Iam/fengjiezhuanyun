@@ -811,8 +811,10 @@ async function doExportIncomingPDF(){
       ]
     };
 
+    const pdfWin=window.open('','_blank');
     const blob=await genPdfFromDocDef(docDef);
-    const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    const pdfUrl=URL.createObjectURL(blob);
+    pdfWin.location.href=pdfUrl;
     const fname=`取件单_${pickupDate}_${pickupPerson}.pdf`;
     await uploadPdfToR2(blob,fname);
     showToast('取件单已生成','success');
@@ -972,8 +974,10 @@ async function doExportShippingPDF(recipients){
       ]
     };
 
+    const pdfWin=window.open('','_blank');
     const blob=await genPdfFromDocDef(docDef);
-    const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
+    const pdfUrl=URL.createObjectURL(blob);
+    pdfWin.location.href=pdfUrl;
     const fname=`寄件单_${today}_${Date.now()}.pdf`;
     await uploadPdfToR2(blob,fname);
     showToast('寄件单已生成','success');
