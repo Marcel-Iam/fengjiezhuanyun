@@ -81,23 +81,24 @@
   /* Fixed info columns */
   #shippingTableWrap .col-name{ white-space:nowrap; }
   #shippingTableWrap .col-phone{ white-space:nowrap; min-width:7em; }
-  /* Shipping paid-status column: sticky right */
-  #shippingTableWrap .data-table th.paid-col,
-  #shippingTableWrap .data-table td.paid-col{
+  /* Paid-status column: sticky right on all tables */
+  .data-table th.paid-col,
+  .data-table td.paid-col{
     position:sticky;
     right:0;
     background:var(--card);
     z-index:3;
     box-shadow:-2px 0 6px rgba(0,0,0,0.08);
     text-align:center;
-    min-width:60px;
+    vertical-align:middle;
+    min-width:52px;
   }
-  #shippingTableWrap .data-table th.paid-col{
+  .data-table th.paid-col{
     background:var(--input-bg);
     z-index:5;
   }
-  #shippingTableWrap .data-table tr:hover td.paid-col{background:#faf8f5;}
-  #shippingTableWrap .data-table .total-row td.paid-col{background:var(--input-bg);}
+  .data-table tr:hover td.paid-col{background:#faf8f5;}
+  .data-table .total-row td.paid-col{background:var(--input-bg);}
 
   @media (max-width: 768px) {
     .data-table td:last-child, .data-table th:last-child { position: sticky; right: 0; background: var(--card); z-index: 2; box-shadow: -2px 0 4px rgba(0,0,0,0.06); }
@@ -450,7 +451,7 @@ function renderIncoming(){
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'incoming\',this.checked)"></th>';
   h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
-  h+='<th>日期</th><th>已付运费</th>';
+  h+='<th>日期</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
   h+='</tr></thead><tbody>';
   list.forEach(o=>{
@@ -465,7 +466,7 @@ function renderIncoming(){
       pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
       if(ii===0){
         h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
-        h+=`<td rowspan="${rowspan}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=`<td rowspan="${rowspan}" class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
         if(editMode&&isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
         if(editMode&&!isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnpicked('${o.id}')">未取货</button></td>`;
       }
