@@ -449,7 +449,7 @@ function renderIncoming(){
   const tot={};pids.forEach(id=>{tot[id]=0;});
   let h='<table class="data-table"><thead><tr>';
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'incoming\',this.checked)"></th>';
-  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
+  h+='<th style="min-width:4em">填表人</th><th>订单号</th><th>取货码</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>日期</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
@@ -506,7 +506,7 @@ function renderShipping(){
   h+='</tr></thead><tbody>';
   list.forEach(o=>{
     const rl=o.outgoing.length||1;
-    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
+    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<br><span style="color:var(--danger);font-size:0.75rem">(未取货)</span>')).join('<br>');
     let actionHtml='';
     if(editMode&&isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button>`;
     if(editMode&&!isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnshipped('${o.id}')">未寄出</button>`;
@@ -1163,7 +1163,7 @@ function buildSearchIncomingTable(list){
   const actStyle='vertical-align:middle;white-space:nowrap;background:var(--card);';
   const actStyleInput='vertical-align:middle;background:var(--input-bg);';
   let h='<div class="table-wrap search-table-wrap"><table class="data-table"><thead><tr>';
-  h+='<th>填表人</th><th>订单号</th><th>取货码</th>';
+  h+='<th style="min-width:4em">填表人</th><th>订单号</th><th>取货码</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>日期</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
   list.forEach(o=>{
@@ -1196,7 +1196,7 @@ function buildSearchShippingTable(list){
   h+='<th>备注</th><th>已付运费</th><th class="act-col">操作</th></tr></thead><tbody>';
   list.forEach(o=>{
     const rl=o.outgoing.length||1;
-    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<span style="color:var(--danger);font-size:0.75rem"> (未取货)</span>')).join('<br>');
+    const allCodes=o.incoming.map(inc=>esc(inc.express_code)+(o.picked_up?'':'<br><span style="color:var(--danger);font-size:0.75rem">(未取货)</span>')).join('<br>');
     const actionCell=`<td rowspan="${rl}" class="act-col" style="${actStyle}"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
     if(!o.outgoing.length){
       h+=`<tr><td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td></td>${actionCell}</tr>`;
