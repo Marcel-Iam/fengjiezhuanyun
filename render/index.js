@@ -218,8 +218,8 @@ async function handleUserMessage(text, userId, openKfId, productList, existingCo
       return;
     }
     const editData = editResult.data || editResult.partial_data;
-    const preview = buildConfirmPreview(editData);
-    await sendWechatMsg(userId, openKfId, preview);
+    await sendWechatMsg(userId, openKfId, '📋 订单确认');
+    await sendWechatMsg(userId, openKfId, buildConfirmPreview(editData));
     await sendWechatMsg(userId, openKfId, '回复"确认"提交修改，回复"取消"重新开始。如需再次修改，请复制上面内容修改后重发。');
     userStates.set(stateKey, {
       awaiting_confirm: true,
@@ -334,16 +334,18 @@ async function handleUserMessage(text, userId, openKfId, productList, existingCo
     // 保存当前提取到的状态
     userStates.set(stateKey, { data: extracted, last_updated: Date.now() });
     setTimeout(() => userStates.delete(stateKey), STATE_TTL);
-    // 第一条：已提取到的内容预览
+    // 第一条：标题
+    await sendWechatMsg(userId, openKfId, '📋 已提取到的信息：');
+    // 第二条：内容（方便客户直接复制修改）
     await sendWechatMsg(userId, openKfId, buildPartialPreview(extracted));
-    // 第二条：具体问题
+    // 第三条：具体问题
     await sendWechatMsg(userId, openKfId, '⚠️ 以下信息有问题，请核对后重新发送：\n' + issues.map(i => '• ' + i).join('\n'));
     return;
   }
 
   // 全部通过，进入确认流程
-  const preview = buildConfirmPreview(extracted);
-  await sendWechatMsg(userId, openKfId, preview);
+  await sendWechatMsg(userId, openKfId, '📋 订单确认');
+  await sendWechatMsg(userId, openKfId, buildConfirmPreview(extracted));
   await sendWechatMsg(userId, openKfId, '回复"确认"提交，回复"取消"重新来。如需修改，请复制上面的内容手动修改后重新发送。');
   userStates.set(stateKey, { data: extracted, awaiting_confirm: true, last_updated: Date.now() });
   setTimeout(() => userStates.delete(stateKey), STATE_TTL);
@@ -504,7 +506,7 @@ function validateOrder(data) {
 }
 
 function buildPartialPreview(data) {
-  const lines = ['📋 已提取到的信息：', ''];
+  const lines = [];
   if (data.created_by) lines.push(`填表人：${data.created_by}`);
   (data.incoming || []).forEach((inc, i) => {
     lines.push(`来件单${i + 1}：${inc.express_code || '（缺订单号）'}  取货码：${inc.pickup_code || '（缺取货码）'}`);
@@ -536,7 +538,7 @@ function buildOrder(data, userId) {
 }
 
 function buildConfirmPreview(data) {
-  const lines = ['📋 订单确认', ''];
+  const lines = [];
   lines.push(`填表人：${data.created_by || '未填写'}`);
   lines.push('');
   (data.incoming || []).forEach((inc, i) => {
