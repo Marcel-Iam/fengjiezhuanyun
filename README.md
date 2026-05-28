@@ -400,5 +400,5 @@ wrangler deploy
 17. 微信端 Gemini 响应约 20 秒（免费模型 + Render Ohio 节点延迟），收到消息后先发确认提示改善体感
 18. 产品改名时 Worker `saveProducts` 的 `changeMap` 同步逻辑曾产生格式错误的 product_id（格式：`旧ID（新名称）`），已通过 SQL REPLACE 修正两个受影响订单（ORD_1779632382743_irqd、ORD_1779980370001_1hf6）。如再次改产品名后发现表头出现重复列，在 D1 Console 运行 DISTINCT 查询排查
 19. PDF 生成用 pdfmake 浏览器版（cdnjs CDN），字体 `NotoSansSC-Regular.ttf` 存 R2，不打包进 HTML。首次生成约 5-10 秒（下载字体），之后页面内缓存
-20. 生成 PDF 时先 `window.open('','_blank')` 开空白页再填入内容，避免浏览器弹窗拦截
-21. 寄件单合并收件人时，所有被合并行的备注用"；"连接保留，不会因取第一行而丢失备注
+20. 生成 PDF 后：新分页直接导航到 R2 URL（与历史档案“查看”方式相同），同时在当前页触发下载。安卓 Chrome 新分页可正常预览，下载提示出现在管理后台页不影响预览
+21. 寄件单合并收件人时，所有被合并行的备注用“；”连接保留，不会因取第一行而丢失备注
