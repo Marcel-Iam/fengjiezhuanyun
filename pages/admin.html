@@ -876,7 +876,8 @@ function showMergePromptGroup(idx){
       const ans=pendingShippingMergeAnswers[gi];
       if(!ans)return;
       const others=recipients.filter(r=>!group.includes(r));
-      const merged={...group[0],address:ans.address,products:[]};
+      const mergedNotes=[...new Set(group.map(r=>r.notes||'').filter(Boolean))].join('；');
+      const merged={...group[0],address:ans.address,notes:mergedNotes,products:[]};
       const prodMap={};
       group.forEach(r=>r.products.forEach(p=>{if(!prodMap[p.product_id])prodMap[p.product_id]={...p,quantity:0};prodMap[p.product_id].quantity+=p.quantity;}));
       merged.products=Object.values(prodMap);
@@ -940,16 +941,16 @@ async function doExportShippingPDF(recipients){
     const tot={};pids.forEach(id=>{tot[id]=0;});
 
     const headerRow=[
-      {text:'收件人',style:'th',noWrap:true},{text:'地址',style:'th'},{text:'电话',style:'th',noWrap:true},
+      {text:'收件人',style:'th',noWrap:true},{text:'地址',style:'th',noWrap:true},{text:'电话',style:'th',noWrap:true},
       ...pids.map(id=>({text:id,style:'th',alignment:'center'})),
-      {text:'备注',style:'th'}
+      {text:'备注',style:'th',noWrap:true}
     ];
     const bodyRows=recipients.map(r=>{
       const row=[
-        {text:r.name||'',style:'td',noWrap:true},{text:r.address||'',style:'td'},{text:r.phone||'',style:'td',noWrap:true}
+        {text:r.name||'',style:'td',noWrap:true},{text:r.address||'',style:'td',noWrap:true},{text:r.phone||'',style:'td',noWrap:true}
       ];
       pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;row.push({text:q?String(q):'',style:'td',alignment:'center'});});
-      row.push({text:r.notes||'',style:'td'});
+      row.push({text:r.notes||'',style:'td',noWrap:true});
       return row;
     });
     const totalRow=[
@@ -975,9 +976,7 @@ async function doExportShippingPDF(recipients){
           // usable = 841 - 30 = 811pt (pdfmake uses 72dpi pt)
           // fixed: name(28) + phone(55) + notes(20) = 103pt
           // remaining for addr + products = 708pt
-          const prodColW = Math.max(14, Math.min(22, Math.floor(250/Math.max(pids.length,1))));
-          const addrW = Math.min(160, Math.max(80, 708 - pids.length * prodColW));
-          return {table:{headerRows:1,widths:[28,addrW,55,...pids.map(()=>prodColW),35],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'};
+          return {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>'auto'),'auto'],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'};
         })()
       ]
     };
