@@ -54,11 +54,32 @@
   .data-table tr:hover td{background:#faf8f5;}
   .data-table input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
   .table-wrap{overflow-x:auto;}
+
+  /* Shipping table: address never wraps, table scrolls horizontally */
+  #shippingTableWrap .addr-cell{
+    white-space:nowrap;
+  }
+  /* Shipping paid-status column: sticky right */
+  #shippingTableWrap .data-table th.paid-col,
+  #shippingTableWrap .data-table td.paid-col{
+    position:sticky;
+    right:0;
+    background:var(--card);
+    z-index:3;
+    box-shadow:-2px 0 6px rgba(0,0,0,0.08);
+    text-align:center;
+    min-width:60px;
+  }
+  #shippingTableWrap .data-table th.paid-col{
+    background:var(--input-bg);
+  }
+  #shippingTableWrap .data-table tr:hover td.paid-col{background:#faf8f5;}
+  #shippingTableWrap .data-table .total-row td.paid-col{background:var(--input-bg);}
+
   @media (max-width: 768px) {
     .data-table td:last-child, .data-table th:last-child { position: sticky; right: 0; background: var(--card); z-index: 2; box-shadow: -2px 0 4px rgba(0,0,0,0.06); }
     .data-table tr:hover td:last-child { background: #faf8f5; }
     .data-table .total-row td:last-child { background: var(--input-bg); }
-    /* search tables: sticky the action column by class instead of last-child */
     .search-table-wrap .data-table td:last-child,
     .search-table-wrap .data-table th:last-child { position: static; box-shadow: none; }
     .search-table-wrap .data-table td.act-col,
@@ -93,7 +114,9 @@
   .recipient-header span{font-weight:500;font-size:0.88rem;}
   .add-btn{width:100%;padding:8px;border:2px dashed var(--border);background:transparent;border-radius:6px;color:var(--text-light);cursor:pointer;font-family:'Noto Sans SC',sans-serif;font-size:0.85rem;}
   .add-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .confirm-box{width:100%;max-width:400px;background:#fff;border-radius:10px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,0.18);}
+  .confirm-box{width:100%;max-width:400px;background:#fff;border-radius:10px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,0.18);position:relative;}
+  .confirm-box-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.2rem;color:var(--text-light);cursor:pointer;line-height:1;padding:2px 6px;}
+  .confirm-box-close:hover{color:var(--text);}
   .confirm-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;color:var(--danger);}
   .confirm-message{font-size:0.9rem;line-height:1.6;margin-bottom:18px;}
   .confirm-actions{display:flex;gap:10px;}
@@ -235,7 +258,8 @@
 <!-- 合并收件人弹窗 -->
 <div class="modal-overlay" id="mergeModal">
   <div class="confirm-box" style="max-width:480px;">
-    <div class="confirm-title" style="color:var(--accent);">发现重复收件人</div>
+    <button class="confirm-box-close" onclick="doMergeCancel()" title="关闭">×</button>
+    <div class="confirm-title" style="color:var(--accent);padding-right:24px;">发现重复收件人</div>
     <div id="mergeModalMsg" class="confirm-message" style="white-space:pre-line;"></div>
     <select id="mergeAddrSel" style="width:100%;margin-bottom:12px;display:none;"></select>
     <input type="hidden" id="mergeName"><input type="hidden" id="mergeIdx"><input type="hidden" id="mergeAddrs">
@@ -454,7 +478,7 @@ function renderShipping(){
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'shipping\',this.checked)"></th>';
   h+='<th>填表人</th><th>订单号</th><th>收件人</th><th>地址</th><th>电话</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
-  h+='<th>备注</th><th>已付运费</th>';
+  h+='<th>备注</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
   h+='</tr></thead><tbody>';
   list.forEach(o=>{
@@ -469,17 +493,17 @@ function renderShipping(){
         if(isActive&&!editMode) h+=`<td rowspan="${rl}" style="vertical-align:middle"><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
         h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
       }
-      h+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
+      h+=`<td>${esc(r.name)}</td><td><div class="addr-cell" title="${esc(r.address)}">${esc(r.address)}</div></td><td>${esc(r.phone)}</td>`;
       pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
       h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
-      if(ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle;text-align:center"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+      if(ri===0) h+=`<td rowspan="${rl}" class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
       if(editMode&&ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle;white-space:nowrap">${actionHtml}</td>`;
       h+='</tr>';
     });
     if(!o.outgoing.length){
       h+='<tr>';
       if(isActive&&!editMode) h+=`<td><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
-      h+=`<td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td></td>`;
+      h+=`<td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
       if(editMode) h+=`<td style="white-space:nowrap">${actionHtml}</td>`;
       h+='</tr>';
     }
@@ -490,7 +514,7 @@ function renderShipping(){
     if(!editMode) h+='<td></td>';
     h+=`<td colspan="${fixedCols-1}"></td><td>合计</td>`;
     pids.forEach(id=>{h+=`<td class="qty-cell">${tot[id]}</td>`;});
-    h+='<td></td><td></td>';
+    h+='<td></td><td class="paid-col"></td>';
     if(editMode) h+='<td></td>';
     h+='</tr>';
   }
@@ -753,7 +777,6 @@ async function doExportIncomingPDF(){
   showLoading(false);
 }
 
-// 常用繁简转换表
 const TRAD_TO_SIMP={
   '張':'张','國':'国','龍':'龙','東':'东','來':'来','學':'学','說':'说','時':'时','過':'过','對':'对',
   '樣':'样','現':'现','還':'还','體':'体','為':'为','與':'与','興':'兴','從':'从','歷':'历','電':'电',
@@ -771,12 +794,10 @@ async function exportShippingPDF(){
   const selected=orders.filter(o=>ids.includes(o.id));
   let allRecipients=[];
   selected.forEach(o=>{o.outgoing.forEach(r=>{
-    // Convert name to simplified
     const simpName=toSimp(r.name.trim());
     allRecipients.push({...r, name: simpName, _origName: r.name, _orderId: o.id});
   });});
 
-  // Group by normalized name OR phone
   const groups=[];
   const assigned=new Set();
   allRecipients.forEach((r,i)=>{
@@ -859,25 +880,43 @@ function doMergeNo(){
   document.getElementById('mergeModal').classList.remove('active');
   showMergePromptGroup(idx+1);
 }
+function doMergeCancel(){
+  // X button: abort the entire export flow
+  document.getElementById('mergeModal').classList.remove('active');
+  pendingShippingRecipients=[];
+  pendingShippingDups=[];
+  pendingShippingMergeAnswers={};
+}
 
 async function doExportShippingPDF(recipients){
   showLoading(true);
   try{
     const pids=[...new Set(recipients.flatMap(r=>r.products.map(p=>p.product_id)))];
     const tot={};pids.forEach(id=>{tot[id]=0;});
-    const S='border:1px solid #555;padding:5px 8px;background:#eee;';
+    // Scale font + padding based on total column count to prevent horizontal overflow in A4 landscape
+    const totalCols=4+pids.length;
+    const fs=totalCols<=8?11:totalCols<=12?9:totalCols<=16?7.5:6.5;
+    const pad=fs>=10?'4px 6px':fs>=8?'3px 5px':'2px 4px';
+    const S=`border:1px solid #555;padding:${pad};background:#eee;font-size:${fs}px;`;
+    const TD=`border:1px solid #555;padding:${pad};font-size:${fs}px;`;
+    const TDc=`border:1px solid #555;padding:${pad};font-size:${fs}px;text-align:center;`;
+    // colgroup widths: name 5%, address flexible, phone fixed, product cols equal share, notes 8%
+    const addrW=pids.length>8?22:28;
+    const phoneW=fs<9?10:12;
+    const prodW=Math.max(3,Math.floor(40/Math.max(pids.length,1)));
+    const colgroup=`<colgroup><col style="width:5%"><col style="width:${addrW}%"><col style="width:${phoneW}%">${pids.map(()=>`<col style="width:${prodW}%">`).join('')}<col style="width:8%"></colgroup>`;
     let rows='';
     recipients.forEach(r=>{
       rows+='<tr>';
-      rows+=`<td>${esc(r.name)}</td><td>${esc(r.address)}</td><td>${esc(r.phone)}</td>`;
-      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="text-align:center">${q||''}</td>`;});
-      rows+=`<td style="font-size:11px">${esc(r.notes||'')}</td></tr>`;
+      rows+=`<td style="${TD}">${esc(r.name)}</td><td style="${TD}word-break:break-all;">${esc(r.address)}</td><td style="${TD}white-space:nowrap;">${esc(r.phone)}</td>`;
+      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="${TDc}">${q||''}</td>`;});
+      rows+=`<td style="${TD}">${esc(r.notes||'')}</td></tr>`;
     });
-    rows+='<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="text-align:right">合计</td>';
-    pids.forEach(id=>{rows+=`<td style="text-align:center">${tot[id]}</td>`;});rows+='<td></td></tr>';
-    const ph=pids.map(id=>`<th style="text-align:center;${S}">${esc(id)}</th>`).join('');
+    rows+=`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="${TD}text-align:right;">合计</td>`;
+    pids.forEach(id=>{rows+=`<td style="${TDc}">${tot[id]}</td>`;});rows+=`<td style="${TD}"></td></tr>`;
+    const ph=pids.map(id=>`<th style="${S}text-align:center;">${esc(id)}</th>`).join('');
     const today=new Date().toISOString().split('T')[0];
-    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">寄件单</h2><div style="margin-bottom:16px;font-size:13px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows.replace(/<td/g,'<td style="border:1px solid #555;padding:5px 8px;"')}</tbody></table></div>`;
+    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:15px;color:#222;"><h2 style="text-align:center;margin-bottom:6px;font-size:16px;">寄件单</h2><div style="margin-bottom:10px;font-size:11px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;table-layout:fixed;">${colgroup}<thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     const blob=await genPdf(html,'landscape');
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
     const fname=`寄件单_${today}_${Date.now()}.pdf`;
@@ -1335,5 +1374,4 @@ function showToast(msg,type){const t=document.getElementById('toast');t.textCont
 function showLoading(on){document.getElementById('loading').classList.toggle('active',on);}
 </script>
 </body>
-
 </html>
