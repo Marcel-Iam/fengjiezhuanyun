@@ -807,7 +807,7 @@ async function doExportIncomingPDF(){
       content:[
         {text:'来件提货单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
         {text:`提货日期: ${pickupDate}　　提货人: ${pickupPerson}`,style:{fontSize:9},margin:[0,0,0,8]},
-        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>'auto')],body:[headerRow,...bodyRows,totalRow]},layout:'lightHorizontalLines'}
+        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>'auto')],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
       ]
     };
 
@@ -970,7 +970,7 @@ async function doExportShippingPDF(recipients){
       content:[
         {text:'寄件单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
         {text:`日期: ${today}`,style:{fontSize:9},margin:[0,0,0,8]},
-        {table:{headerRows:1,widths:['auto','*','auto',...pids.map(()=>'auto'),'auto'],body:[headerRow,...bodyRows,totalRow]},layout:'lightHorizontalLines'}
+        {table:{headerRows:1,widths:['auto','*','auto',...pids.map(()=>'auto'),'auto'],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'lightHorizontalLines'}
       ]
     };
 
