@@ -145,7 +145,7 @@ async function syncAndProcessMessages(openKfId, token) {
     }
   } catch (e) { console.error('Failed to load orders:', e); }
 
-  const productList = products.map(p => `${p.id}（${p.product_name}）`).join('、');
+  const productList = products.map(p => `产品ID: ${p.id} | 名称: ${p.product_name}`).join('\n');
 
   for (const msg of msgList) {
     if (msg.msgtype !== 'text' || msg.origin !== 3) continue;
@@ -310,40 +310,43 @@ async function handleUserMessage(text, userId, openKfId, productList, existingCo
     }
   }
 
-  const result = await parseWithState(text, productList, existingCodes, state, savedName);
+  const extracted = await parseWithState(text, productList, existingCodes, state, savedName);
 
-  if (!result) {
+  if (!extracted) {
     await sendWechatMsg(userId, openKfId, '解析出错，请稍后再试。');
     return;
   }
 
-  if (!result.valid) {
-    if (result.partial_data) {
-      // 保护：如果 Gemini 把已有的 incoming 丢掉了，用旧状态补回
-      const merged = result.partial_data;
-      if (state && state.incoming && state.incoming.length > 0) {
-        if (!merged.incoming || merged.incoming.length === 0) {
-          merged.incoming = state.incoming;
-        }
-      }
-      if (state && state.created_by && !merged.created_by) {
-        merged.created_by = state.created_by;
-      }
-      userStates.set(stateKey, { data: merged, last_updated: Date.now() });
-      setTimeout(() => userStates.delete(stateKey), STATE_TTL);
+  // 保护：如果 Gemini 把已有的 incoming / created_by 丢掉了，用旧状态补回
+  if (state && state.incoming && state.incoming.length > 0) {
+    if (!extracted.incoming || extracted.incoming.length === 0) {
+      extracted.incoming = state.incoming;
     }
-    await sendWechatMsg(userId, openKfId, result.error_reply);
+  }
+  if (state && state.created_by && !extracted.created_by) {
+    extracted.created_by = state.created_by;
+  }
+
+  // ── 硬编码校验 ──
+  const issues = validateOrder(extracted);
+
+  if (issues.length > 0) {
+    // 保存当前提取到的状态
+    userStates.set(stateKey, { data: extracted, last_updated: Date.now() });
+    setTimeout(() => userStates.delete(stateKey), STATE_TTL);
+    // 第一条：已提取到的内容预览
+    await sendWechatMsg(userId, openKfId, buildPartialPreview(extracted));
+    // 第二条：具体问题
+    await sendWechatMsg(userId, openKfId, '⚠️ 以下信息有问题，请核对后重新发送：\n' + issues.map(i => '• ' + i).join('\n'));
     return;
   }
 
-  if (result.ready_to_submit) {
-    const finalData = result.data || result.partial_data;
-    const preview = buildConfirmPreview(finalData);
-    await sendWechatMsg(userId, openKfId, preview);
-    await sendWechatMsg(userId, openKfId, '回复"确认"提交，回复"取消"重新来。如需修改，请复制上面的内容手动修改后重新发送。');
-    userStates.set(stateKey, { data: finalData, awaiting_confirm: true, last_updated: Date.now() });
-    setTimeout(() => userStates.delete(stateKey), STATE_TTL);
-  }
+  // 全部通过，进入确认流程
+  const preview = buildConfirmPreview(extracted);
+  await sendWechatMsg(userId, openKfId, preview);
+  await sendWechatMsg(userId, openKfId, '回复"确认"提交，回复"取消"重新来。如需修改，请复制上面的内容手动修改后重新发送。');
+  userStates.set(stateKey, { data: extracted, awaiting_confirm: true, last_updated: Date.now() });
+  setTimeout(() => userStates.delete(stateKey), STATE_TTL);
 }
 
 // ============================================================
@@ -356,15 +359,10 @@ async function parseWithState(text, productList, existingCodes, currentData, sav
     : '目前还没有收集到任何信息。';
   const savedNameStr = savedName ? `客户上次使用的填表人称呼是：${savedName}，如果本次没有提供填表人称呼，自动使用这个名字。` : '';
 
-  const existingCodesStr = existingCodes.length > 0 ? existingCodes.join('、') : '无';
+  const prompt = `你是一个转运订单助手，负责从客户消息中提取订单信息。
 
-  const prompt = `你是一个转运订单助手，负责通过多轮对话收集订单信息。
-
-可用产品列表（格式：产品ID（产品名称））：
+可用产品列表（product_id 必须严格使用下面「产品ID」后面的字段内容，不能包含名称部分）：
 ${productList || '暂无产品信息'}
-
-数据库中已有的订单号和取货码（不能重复）：
-${existingCodesStr}
 
 ${currentDataStr}
 
@@ -375,53 +373,42 @@ ${savedNameStr}
 客户最新消息：
 ${text}
 
-严格按以下 JSON 格式返回，不要有任何其他文字或 markdown：
+只负责提取和合并数据，不要判断信息是否完整。严格按以下 JSON 格式返回，不要有任何其他文字或 markdown：
 {
-  "valid": false,
-  "ready_to_submit": false,
-  "error_reply": "用口语中文说明缺少什么或哪里有问题，信息完整时留空",
-  "partial_data": {
-    "created_by": "填表人称呼，没有则空字符串",
-    "incoming": [
-      {
-        "express_code": "订单号，必填",
-        "pickup_code": "取货码，必填",
-        "products": [
-          { "product_id": "产品ID（来自产品列表）", "product_name": "产品名称", "quantity": 数量 }
-        ]
-      }
-    ],
-    "outgoing": [
-      {
-        "name": "收件人姓名",
-        "phone": "联系电话",
-        "address": "收件地址",
-        "products": [
-          { "product_id": "产品ID", "product_name": "产品名称", "quantity": 数量 }
-        ],
-        "notes": ""
-      }
-    ]
-  },
-  "data": null
+  "created_by": "填表人称呼，没有则空字符串",
+  "incoming": [
+    {
+      "express_code": "订单号，没有则空字符串",
+      "pickup_code": "取货码，没有则空字符串",
+      "products": [
+        { "product_id": "产品ID（严格来自产品列表的产品ID字段）", "product_name": "产品名称", "quantity": 数量 }
+      ]
+    }
+  ],
+  "outgoing": [
+    {
+      "name": "收件人姓名，没有则空字符串",
+      "phone": "联系电话，没有则空字符串",
+      "address": "收件地址，没有则空字符串",
+      "products": [
+        { "product_id": "产品ID", "product_name": "产品名称", "quantity": 数量 }
+      ],
+      "notes": ""
+    }
+  ],
+  "unrecognized_products": ["无法匹配到产品列表的产品名，没有则空数组"]
 }
 
 规则：
-1. 把客户新消息里的信息合并进已有信息，不要丢弃之前收集到的内容。如果客户一条消息里包含了所有必要信息，直接判断为完整并提交，不要再追问其他内容
-2. partial_data 始终填入已收集到的所有内容（即使信息不完整）
-3. 信息完整条件：有订单号、取货码、至少一个收件人（含姓名/电话/地址）、来件和寄件产品总数匹配（不强制要求填表人称呼）
-4. 信息完整时：valid=true，ready_to_submit=true，data 填与 partial_data 相同的完整数据，error_reply 留空
-5. 信息不完整时：valid=false，ready_to_submit=false，data=null，error_reply 说清楚还缺什么
-6. 产品先模糊匹配产品列表，实在无法确认才询问
-7. 订单号或取货码重复检查：只对照"数据库中已有的订单号和取货码"那个列表，列表里有才算重复。列表里没有就不算重复，不要自己猜测或质疑
-8. 来件和寄件产品总数不匹配时：valid=false，说明哪个产品数量对不上
-9. 只能使用产品列表里有的产品ID
-10. 只返回 JSON，不要 markdown 代码块
-10.5. 信息中的 "am"、"AM"、"pm"、"PM" 是产品名称缩写，不是时间。例如 "6am" 表示 AM 产品 6个，"pm18瓶" 表示 PM 产品 18瓶
-10.6. error_reply 必须简洁，最多两句话，只说缺少什么或哪里不匹配，不要解释计算过程
-11. 如果收件人没有写任何产品，自动把所有来件单的产品合并后全部分配给该收件人，不需要客户再填寄件产品（不限来件单数量）
-12. 如果客户说要修改、更改、变更已有订单，不要尝试处理，直接回复：修改订单请通过以下链接操作：https://marcel-iam.github.io/fengjiezhuanyun/ ，在页面上方输入订单号即可查找和修改
-13. 如果客户发来的新消息里包含订单号，且与已有 partial_data 里的订单号不同，用新消息的信息完全替换旧信息，不要合并`;
+1. 把客户新消息里的信息合并进已有信息，不要丢弃之前收集到的内容
+2. 所有字段尽量提取，缺少的留空字符串或空数组，不要省略字段
+3. 产品先模糊匹配产品列表，实在无法确认才放入 unrecognized_products
+4. 只能使用产品列表里有的产品ID，不能自创
+5. 信息中的 "am"、"AM"、"pm"、"PM" 是产品名称缩写，不是时间。例如 "6am" 表示 AM 产品 6个
+6. 如果收件人没有写任何产品，自动把所有来件单的产品合并后全部分配给该收件人
+7. 如果客户说要修改、更改、变更已有订单，incoming 和 outgoing 照常提取，不要特殊处理
+8. 如果客户发来的新消息里包含订单号，且与已有信息里的订单号不同，用新消息的信息完全替换旧信息
+9. 只返回 JSON，不要 markdown 代码块`;
 
   const t0 = Date.now();
   const res = await fetch(
@@ -451,6 +438,90 @@ ${text}
 // ============================================================
 // 辅助函数
 // ============================================================
+
+// ============================================================
+// 硬编码校验
+// ============================================================
+
+function validateOrder(data) {
+  const issues = [];
+
+  // 来件信息
+  const incoming = data.incoming || [];
+  if (incoming.length === 0) {
+    issues.push('缺少来件单信息');
+  } else {
+    incoming.forEach((inc, i) => {
+      const label = incoming.length > 1 ? `来件单${i + 1} ` : '';
+      if (!inc.express_code) issues.push(`${label}缺少订单号`);
+      if (!inc.pickup_code)  issues.push(`${label}缺少取货码`);
+      if (!inc.products || inc.products.length === 0) issues.push(`${label}缺少产品`);
+    });
+  }
+
+  // 收件人信息
+  const outgoing = data.outgoing || [];
+  if (outgoing.length === 0) {
+    issues.push('缺少收件人信息');
+  } else {
+    outgoing.forEach((r, i) => {
+      const label = `收件人${i + 1} `;
+      if (!r.name)    issues.push(`${label}缺少姓名`);
+      if (!r.phone)   issues.push(`${label}缺少电话`);
+      if (!r.address) issues.push(`${label}缺少地址`);
+    });
+  }
+
+  // 产品数量匹配
+  const incTotals = {};
+  incoming.forEach(inc => {
+    (inc.products || []).forEach(p => {
+      if (!incTotals[p.product_id]) incTotals[p.product_id] = { qty: 0, name: p.product_name };
+      incTotals[p.product_id].qty += p.quantity;
+    });
+  });
+  const outTotals = {};
+  outgoing.forEach(r => {
+    (r.products || []).forEach(p => {
+      if (!outTotals[p.product_id]) outTotals[p.product_id] = { qty: 0, name: p.product_name };
+      outTotals[p.product_id].qty += p.quantity;
+    });
+  });
+  const allIds = new Set([...Object.keys(incTotals), ...Object.keys(outTotals)]);
+  for (const id of allIds) {
+    const inQty  = incTotals[id]?.qty || 0;
+    const outQty = outTotals[id]?.qty || 0;
+    const name   = incTotals[id]?.name || outTotals[id]?.name || id;
+    if (inQty !== outQty) issues.push(`${name} 来件${inQty}瓶/盒，寄件合计${outQty}瓶/盒`);
+  }
+
+  // 无法识别的产品
+  (data.unrecognized_products || []).forEach(p => {
+    issues.push(`无法识别产品：${p}`);
+  });
+
+  return issues;
+}
+
+function buildPartialPreview(data) {
+  const lines = ['📋 已提取到的信息：', ''];
+  if (data.created_by) lines.push(`填表人：${data.created_by}`);
+  (data.incoming || []).forEach((inc, i) => {
+    lines.push(`来件单${i + 1}：${inc.express_code || '（缺订单号）'}  取货码：${inc.pickup_code || '（缺取货码）'}`);
+    (inc.products || []).forEach(p => lines.push(`  ${p.product_name} × ${p.quantity}`));
+  });
+  if ((data.outgoing || []).length > 0) {
+    lines.push('');
+    lines.push('收件人：');
+    data.outgoing.forEach((r, i) => {
+      lines.push(`${i + 1}. ${r.name || '（缺姓名）'}  ${r.phone || '（缺电话）'}`);
+      lines.push(`   ${r.address || '（缺地址）'}`);
+      (r.products || []).forEach(p => lines.push(`   ${p.product_name} × ${p.quantity}`));
+      if (r.notes) lines.push(`   备注：${r.notes}`);
+    });
+  }
+  return lines.join('\n');
+}
 
 function buildOrder(data, userId) {
   return {
