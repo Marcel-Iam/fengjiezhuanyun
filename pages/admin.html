@@ -997,12 +997,15 @@ async function ensurePdfFont() {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   const b64 = btoa(binary);
+  // pdfmake 需要通过 vfs 注册字体
+  pdfMake.vfs = pdfMake.vfs || {};
+  pdfMake.vfs['NotoSansSC-Regular.ttf'] = b64;
   pdfMake.fonts = {
     NotoSansSC: {
-      normal:      b64,
-      bold:        b64,
-      italics:     b64,
-      bolditalics: b64,
+      normal:      'NotoSansSC-Regular.ttf',
+      bold:        'NotoSansSC-Regular.ttf',
+      italics:     'NotoSansSC-Regular.ttf',
+      bolditalics: 'NotoSansSC-Regular.ttf',
     }
   };
   _pdfFontLoaded = true;
