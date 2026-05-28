@@ -900,23 +900,20 @@ async function doExportShippingPDF(recipients){
     const S=`border:1px solid #555;padding:${pad};background:#eee;font-size:${fs}px;`;
     const TD=`border:1px solid #555;padding:${pad};font-size:${fs}px;`;
     const TDc=`border:1px solid #555;padding:${pad};font-size:${fs}px;text-align:center;`;
-    // colgroup widths: name 5%, address flexible, phone fixed, product cols equal share, notes 8%
-    const addrW=pids.length>8?22:28;
-    const phoneW=fs<9?10:12;
-    const prodW=Math.max(3,Math.floor(40/Math.max(pids.length,1)));
-    const colgroup=`<colgroup><col style="width:5%"><col style="width:${addrW}%"><col style="width:${phoneW}%">${pids.map(()=>`<col style="width:${prodW}%">`).join('')}<col style="width:8%"></colgroup>`;
+    const TDnowrap=`border:1px solid #555;padding:${pad};font-size:${fs}px;white-space:nowrap;`;
+    const TDaddr=`border:1px solid #555;padding:${pad};font-size:${fs}px;min-width:120px;word-break:break-all;`;
     let rows='';
     recipients.forEach(r=>{
       rows+='<tr>';
-      rows+=`<td style="${TD}">${esc(r.name)}</td><td style="${TD}word-break:break-all;">${esc(r.address)}</td><td style="${TD}white-space:nowrap;">${esc(r.phone)}</td>`;
+      rows+=`<td style="${TDnowrap}">${esc(r.name)}</td><td style="${TDaddr}">${esc(r.address)}</td><td style="${TDnowrap}">${esc(r.phone)}</td>`;
       pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="${TDc}">${q||''}</td>`;});
       rows+=`<td style="${TD}">${esc(r.notes||'')}</td></tr>`;
     });
     rows+=`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="${TD}text-align:right;">合计</td>`;
     pids.forEach(id=>{rows+=`<td style="${TDc}">${tot[id]}</td>`;});rows+=`<td style="${TD}"></td></tr>`;
-    const ph=pids.map(id=>`<th style="${S}text-align:center;">${esc(id)}</th>`).join('');
+    const ph=pids.map(id=>`<th style="${S}text-align:center;white-space:nowrap;">${esc(id)}</th>`).join('');
     const today=new Date().toISOString().split('T')[0];
-    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:15px;color:#222;"><h2 style="text-align:center;margin-bottom:6px;font-size:16px;">寄件单</h2><div style="margin-bottom:10px;font-size:11px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;table-layout:fixed;">${colgroup}<thead><tr><th style="${S}">收件人</th><th style="${S}">地址</th><th style="${S}">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:15px;color:#222;"><h2 style="text-align:center;margin-bottom:6px;font-size:16px;">寄件单</h2><div style="margin-bottom:10px;font-size:11px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${S}white-space:nowrap;">收件人</th><th style="${S}min-width:120px;">地址</th><th style="${S}white-space:nowrap;">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     const blob=await genPdf(html,'landscape');
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
     const fname=`寄件单_${today}_${Date.now()}.pdf`;
