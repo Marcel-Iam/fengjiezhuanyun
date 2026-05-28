@@ -53,10 +53,9 @@
   .data-table td{vertical-align:top;}
   .data-table tr:hover td{background:#faf8f5;}
   .data-table input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
-  .table-wrap{overflow-x:auto;}
-  /* Shipping table: fixed height so sticky header works */
-  #shippingTableWrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px);}
-  #shippingTableWrap .data-table th{position:sticky;top:0;z-index:4;}
+  /* All tables: scrollable with sticky header */
+  .table-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px);}
+  .data-table th{position:sticky;top:0;z-index:4;}
 
   /* Shipping table column sizing */
   #shippingTableWrap .addr-cell{
@@ -75,9 +74,10 @@
     word-break:keep-all;
     overflow-wrap:break-word;
     text-align:center;
-    vertical-align:bottom;
+    vertical-align:middle;
     line-height:1.3;
   }
+  .data-table td.qty-cell{text-align:center;vertical-align:middle;}
   /* Fixed info columns */
   #shippingTableWrap .col-name{ white-space:nowrap; }
   #shippingTableWrap .col-phone{ white-space:nowrap; min-width:7em; }
