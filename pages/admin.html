@@ -971,10 +971,12 @@ async function doExportShippingPDF(recipients){
         {text:'寄件单',style:{fontSize:12,bold:true,alignment:'center'},margin:[0,0,0,4]},
         {text:`日期: ${today}`,style:{fontSize:7},margin:[0,0,0,4]},
         (()=>{
-          // A4 landscape usable width ~780pt, fixed cols: name(28)+phone(55)+notes(20)+padding = ~120pt
-          // Remaining ~660pt split between address and product cols
-          const prodColW = Math.max(14, Math.min(22, Math.floor(300/Math.max(pids.length,1))));
-          const addrW = Math.max(80, 660 - pids.length * prodColW);
+          // A4 landscape: 297mm, pageMargins [15,15,15,15]
+          // usable = 841 - 30 = 811pt (pdfmake uses 72dpi pt)
+          // fixed: name(28) + phone(55) + notes(20) = 103pt
+          // remaining for addr + products = 708pt
+          const prodColW = Math.max(14, Math.min(22, Math.floor(250/Math.max(pids.length,1))));
+          const addrW = Math.min(160, Math.max(80, 708 - pids.length * prodColW));
           return {table:{headerRows:1,widths:[28,addrW,55,...pids.map(()=>prodColW),20],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'};
         })()
       ]
