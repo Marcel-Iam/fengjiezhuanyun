@@ -66,20 +66,21 @@
     word-break:break-all;
     line-height:1.4;
   }
-  /* Product header cells: fixed narrow width, wrap text */
+  /* Product header cells: fixed width, wrap between words not mid-word */
   #shippingTableWrap .data-table th.qty-cell{
-    max-width:4em;
-    min-width:3em;
+    width:52px;
+    min-width:52px;
+    max-width:52px;
     white-space:normal;
-    word-break:break-all;
+    word-break:keep-all;
+    overflow-wrap:break-word;
     text-align:center;
     vertical-align:bottom;
     line-height:1.3;
   }
   /* Fixed info columns */
-  #shippingTableWrap .data-table th:nth-child(1){ white-space:nowrap; }
   #shippingTableWrap .col-name{ white-space:nowrap; }
-  #shippingTableWrap .col-phone{ white-space:nowrap; min-width:8em; }
+  #shippingTableWrap .col-phone{ white-space:nowrap; min-width:7em; }
   /* Shipping paid-status column: sticky right */
   #shippingTableWrap .data-table th.paid-col,
   #shippingTableWrap .data-table td.paid-col{
