@@ -977,7 +977,7 @@ async function doExportShippingPDF(recipients){
           // remaining for addr + products = 708pt
           const prodColW = Math.max(14, Math.min(22, Math.floor(250/Math.max(pids.length,1))));
           const addrW = Math.min(160, Math.max(80, 708 - pids.length * prodColW));
-          return {table:{headerRows:1,widths:[28,addrW,55,...pids.map(()=>prodColW),20],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'};
+          return {table:{headerRows:1,widths:[28,addrW,55,...pids.map(()=>prodColW),35],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'};
         })()
       ]
     };
