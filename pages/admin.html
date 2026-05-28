@@ -970,7 +970,7 @@ async function doExportShippingPDF(recipients){
       content:[
         {text:'寄件单',style:{fontSize:12,bold:true,alignment:'center'},margin:[0,0,0,4]},
         {text:`日期: ${today}`,style:{fontSize:7},margin:[0,0,0,4]},
-        {table:{headerRows:1,widths:[28,'*',55,...pids.map(()=>18),20],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'}
+        {table:{headerRows:1,widths:[28,130,55,...pids.map(()=>18),20],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'}
       ]
     };
 
