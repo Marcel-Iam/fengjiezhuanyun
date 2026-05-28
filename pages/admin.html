@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理后台</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -370,7 +370,6 @@
 </div>
 </div>
 
-<div id="pdfRender" style="position:absolute;left:-9999px;top:0;width:800px;"></div>
 <div class="toast" id="toast"></div>
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
 
@@ -775,26 +774,47 @@ async function doExportIncomingPDF(){
   try{
     const selected=orders.filter(o=>pendingExportIds.includes(o.id));
     const pids=prodIdsIn(selected);const tot={};pids.forEach(id=>{tot[id]=0;});
-    const S='border:1px solid #555;padding:5px 8px;background:#eee;';
-    let rows='';
+
+    const headerRow=[
+      {text:'填表人',style:'th'},{text:'订单号',style:'th'},{text:'取货码',style:'th'},
+      ...pids.map(id=>({text:id,style:'th',alignment:'center'}))
+    ];
+    const bodyRows=[];
     selected.forEach(o=>{
       o.incoming.forEach((inc,ii)=>{
-        rows+=`<tr>`;
-        if(ii===0) rows+=`<td rowspan="${o.incoming.length}" style="border:1px solid #555;padding:5px 8px;vertical-align:middle">${esc(o.created_by||'')}</td>`;
-        rows+=`<td style="border:1px solid #555;padding:5px 8px;">${esc(inc.express_code)}</td>`;
-        rows+=`<td style="border:1px solid #555;padding:5px 8px;">${esc(inc.pickup_code)}</td>`;
-        pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="border:1px solid #555;padding:5px 8px;text-align:center">${q||''}</td>`;});
-        rows+=`</tr>`;
+        const row=[];
+        if(ii===0) row.push({text:o.created_by||'',rowSpan:o.incoming.length,style:'td'});
+        else row.push({});
+        row.push({text:inc.express_code||'',style:'td'});
+        row.push({text:inc.pickup_code||'',style:'td'});
+        pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;row.push({text:q?String(q):'',style:'td',alignment:'center'});});
+        bodyRows.push(row);
       });
     });
-    rows+=`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="border:1px solid #555;padding:5px 8px;text-align:right">合计</td>`;
-    pids.forEach(id=>{rows+=`<td style="border:1px solid #555;padding:5px 8px;text-align:center">${tot[id]}</td>`;});rows+=`</tr>`;
-    const ph=pids.map(id=>`<th style="text-align:center;${S}">${esc(id)}</th>`).join('');
-    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:30px;color:#222;"><h2 style="text-align:center;margin-bottom:8px;font-size:18px;">来件提货单</h2><div style="margin-bottom:16px;font-size:13px;"><span style="margin-right:40px;">提货日期: ${esc(pickupDate)}</span><span>提货人: ${esc(pickupPerson)}</span></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="${S}">填表人</th><th style="${S}">订单号</th><th style="${S}">取货码</th>${ph}</tr></thead><tbody>${rows}</tbody></table></div>`;
-    const blob=await genPdf(html);
+    const totalRow=[
+      {text:'合计',colSpan:3,alignment:'right',style:'total',bold:true},{},{},
+      ...pids.map(id=>({text:String(tot[id]),style:'total',alignment:'center',bold:true}))
+    ];
+
+    const docDef={
+      pageOrientation:'portrait',pageMargins:[20,20,20,20],
+      defaultStyle:{font:'NotoSansSC',fontSize:9},
+      styles:{
+        th:{bold:true,fillColor:'#eeeeee',margin:[3,3,3,3]},
+        td:{margin:[3,3,3,3]},
+        total:{fillColor:'#f5f5f5',margin:[3,3,3,3]}
+      },
+      content:[
+        {text:'来件提货单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
+        {text:`提货日期: ${pickupDate}　　提货人: ${pickupPerson}`,style:{fontSize:9},margin:[0,0,0,8]},
+        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>'auto')],body:[headerRow,...bodyRows,totalRow]},layout:'lightHorizontalLines'}
+      ]
+    };
+
+    const blob=await genPdfFromDocDef(docDef);
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
     const fname=`取件单_${pickupDate}_${pickupPerson}.pdf`;
-    await uploadPdfToR2(blob, fname);
+    await uploadPdfToR2(blob,fname);
     showToast('取件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
@@ -916,40 +936,77 @@ async function doExportShippingPDF(recipients){
   try{
     const pids=[...new Set(recipients.flatMap(r=>r.products.map(p=>p.product_id)))];
     const tot={};pids.forEach(id=>{tot[id]=0;});
-    // Scale font + padding based on total column count to prevent horizontal overflow in A4 landscape
-    const totalCols=4+pids.length;
-    const fs=totalCols<=8?11:totalCols<=12?9:totalCols<=16?7.5:6.5;
-    const pad=fs>=10?'4px 6px':fs>=8?'3px 5px':'2px 4px';
-    const S=`border:1px solid #555;padding:${pad};background:#eee;font-size:${fs}px;`;
-    const TD=`border:1px solid #555;padding:${pad};font-size:${fs}px;`;
-    const TDc=`border:1px solid #555;padding:${pad};font-size:${fs}px;text-align:center;`;
-    const TDnowrap=`border:1px solid #555;padding:${pad};font-size:${fs}px;white-space:nowrap;`;
-    const TDaddr=`border:1px solid #555;padding:${pad};font-size:${fs}px;min-width:120px;word-break:break-all;`;
-    let rows='';
-    recipients.forEach(r=>{
-      rows+='<tr>';
-      rows+=`<td style="${TDnowrap}">${esc(r.name)}</td><td style="${TDaddr}">${esc(r.address)}</td><td style="${TDnowrap}">${esc(r.phone)}</td>`;
-      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;rows+=`<td style="${TDc}">${q||''}</td>`;});
-      rows+=`<td style="${TD}">${esc(r.notes||'')}</td></tr>`;
+
+    const headerRow=[
+      {text:'收件人',style:'th'},{text:'地址',style:'th'},{text:'电话',style:'th'},
+      ...pids.map(id=>({text:id,style:'th',alignment:'center'})),
+      {text:'备注',style:'th'}
+    ];
+    const bodyRows=recipients.map(r=>{
+      const row=[
+        {text:r.name||'',style:'td'},{text:r.address||'',style:'td'},{text:r.phone||'',style:'td'}
+      ];
+      pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;row.push({text:q?String(q):'',style:'td',alignment:'center'});});
+      row.push({text:r.notes||'',style:'td'});
+      return row;
     });
-    rows+=`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3" style="${TD}text-align:right;">合计</td>`;
-    pids.forEach(id=>{rows+=`<td style="${TDc}">${tot[id]}</td>`;});rows+=`<td style="${TD}"></td></tr>`;
-    const ph=pids.map(id=>`<th style="${S}text-align:center;white-space:nowrap;">${esc(id)}</th>`).join('');
+    const totalRow=[
+      {text:'合计',colSpan:3,alignment:'right',style:'total',bold:true},{},{},
+      ...pids.map(id=>({text:String(tot[id]),style:'total',alignment:'center',bold:true})),
+      {text:'',style:'total'}
+    ];
+
     const today=new Date().toISOString().split('T')[0];
-    const html=`<div style="font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;padding:15px;color:#222;"><h2 style="text-align:center;margin-bottom:6px;font-size:16px;">寄件单</h2><div style="margin-bottom:10px;font-size:11px;">日期: ${today}</div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${S}white-space:nowrap;">收件人</th><th style="${S}min-width:120px;">地址</th><th style="${S}white-space:nowrap;">电话</th>${ph}<th style="${S}">备注</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    const blob=await genPdf(html,'landscape');
+    const docDef={
+      pageOrientation:'landscape',pageMargins:[15,15,15,15],
+      defaultStyle:{font:'NotoSansSC',fontSize:9},
+      styles:{
+        th:{bold:true,fillColor:'#eeeeee',margin:[3,3,3,3]},
+        td:{margin:[3,3,3,3]},
+        total:{fillColor:'#f5f5f5',margin:[3,3,3,3]}
+      },
+      content:[
+        {text:'寄件单',style:{fontSize:14,bold:true,alignment:'center'},margin:[0,0,0,6]},
+        {text:`日期: ${today}`,style:{fontSize:9},margin:[0,0,0,8]},
+        {table:{headerRows:1,widths:['auto','*','auto',...pids.map(()=>'auto'),'auto'],body:[headerRow,...bodyRows,totalRow]},layout:'lightHorizontalLines'}
+      ]
+    };
+
+    const blob=await genPdfFromDocDef(docDef);
     const pdfUrl=URL.createObjectURL(blob);window.open(pdfUrl,'_blank');
     const fname=`寄件单_${today}_${Date.now()}.pdf`;
-    await uploadPdfToR2(blob, fname);
+    await uploadPdfToR2(blob,fname);
     showToast('寄件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
 }
 
-async function genPdf(html,orient='portrait'){
-  const rd=document.getElementById('pdfRender');rd.innerHTML=html;
-  const blob=await html2pdf().set({margin:10,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:orient}}).from(rd.firstElementChild).outputPdf('blob');
-  rd.innerHTML='';return blob;
+// pdfmake 字体缓存
+let _pdfFontLoaded = false;
+
+async function ensurePdfFont() {
+  if (_pdfFontLoaded) return;
+  const fontUrl = `${API}/api/pdfs/NotoSansSC-Regular.ttf`;
+  const res = await fetch(fontUrl, { headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
+  if (!res.ok) throw new Error('字体加载失败');
+  const buf = await res.arrayBuffer();
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  pdfMake.fonts = {
+    NotoSansSC: {
+      normal:      b64,
+      bold:        b64,
+      italics:     b64,
+      bolditalics: b64,
+    }
+  };
+  _pdfFontLoaded = true;
+}
+
+async function genPdfFromDocDef(docDef) {
+  await ensurePdfFont();
+  return new Promise((resolve, reject) => {
+    pdfMake.createPdf(docDef).getBlob(blob => resolve(blob), reject);
+  });
 }
 
 async function uploadPdfToR2(blob, filename) {
