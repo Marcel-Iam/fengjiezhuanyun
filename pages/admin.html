@@ -54,10 +54,17 @@
   .data-table tr:hover td{background:#faf8f5;}
   .data-table input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
   .table-wrap{overflow-x:auto;}
+  /* Shipping table: fixed height so sticky header works */
+  #shippingTableWrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px);}
+  #shippingTableWrap .data-table th{position:sticky;top:0;z-index:4;}
 
-  /* Shipping table: address never wraps, table scrolls horizontally */
+  /* Shipping table: address wraps at ~15 chars wide */
   #shippingTableWrap .addr-cell{
-    white-space:nowrap;
+    max-width:13em;
+    min-width:10em;
+    white-space:normal;
+    word-break:break-all;
+    line-height:1.4;
   }
   /* Shipping paid-status column: sticky right */
   #shippingTableWrap .data-table th.paid-col,
@@ -72,6 +79,7 @@
   }
   #shippingTableWrap .data-table th.paid-col{
     background:var(--input-bg);
+    z-index:5;
   }
   #shippingTableWrap .data-table tr:hover td.paid-col{background:#faf8f5;}
   #shippingTableWrap .data-table .total-row td.paid-col{background:var(--input-bg);}
