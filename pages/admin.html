@@ -449,7 +449,7 @@ function renderIncoming(){
   const tot={};pids.forEach(id=>{tot[id]=0;});
   let h='<table class="data-table"><thead><tr>';
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'incoming\',this.checked)"></th>';
-  h+='<th style="min-width:4em">填表人</th><th>订单号</th><th>取货码</th>';
+  h+='<th>订单号</th><th>取货码</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>日期</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
@@ -460,7 +460,6 @@ function renderIncoming(){
       h+='<tr>';
       if(ii===0){
         if(isActive&&!editMode) h+=`<td rowspan="${rowspan}" style="vertical-align:middle"><input type="checkbox" data-group="incoming" value="${o.id}"></td>`;
-        h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
       }
       h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
       pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
@@ -476,7 +475,7 @@ function renderIncoming(){
   if(isActive){
     h+='<tr class="total-row">';
     if(!editMode) h+='<td></td>';
-    h+='<td colspan="2"></td><td>合计</td>';
+    h+='<td></td><td>合计</td>';
     pids.forEach(id=>{h+=`<td class="qty-cell">${tot[id]}</td>`;});
     h+='<td></td><td></td>';
     if(editMode) h+='<td></td>';
@@ -814,7 +813,10 @@ async function doExportIncomingPDF(){
 
     const pdfWin=window.open('','_blank');
     const blob=await genPdfFromDocDef(docDef);
-    const fname=`取件单_${pickupDate}_${pickupPerson}.pdf`;
+    const _cntNow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+    const _cntH=String(_cntNow.getHours()).padStart(2,'0');
+    const _cntM=String(_cntNow.getMinutes()).padStart(2,'0');
+    const fname=`取件单_${pickupDate}_${pickupPerson}_${_cntH}${_cntM}.pdf`;
     await uploadPdfToR2(blob,fname);
     const pdfUrl1=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl1;
@@ -986,7 +988,10 @@ async function doExportShippingPDF(recipients){
 
     const pdfWin=window.open('','_blank');
     const blob=await genPdfFromDocDef(docDef);
-    const fname=`寄件单_${today}_${Date.now()}.pdf`;
+    const _cnsNow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+    const _cnsH=String(_cnsNow.getHours()).padStart(2,'0');
+    const _cnsM=String(_cnsNow.getMinutes()).padStart(2,'0');
+    const fname=`寄件单_${today}_${_cnsH}${_cnsM}.pdf`;
     await uploadPdfToR2(blob,fname);
     const pdfUrl2=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl2;
