@@ -815,7 +815,8 @@ async function doExportIncomingPDF(){
     const _cntNow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
     const _cntH=String(_cntNow.getHours()).padStart(2,'0');
     const _cntM=String(_cntNow.getMinutes()).padStart(2,'0');
-    const fname=`取件单_${pickupDate}_${pickupPerson}_${_cntH}${_cntM}.pdf`;
+    const _cntS=String(_cntNow.getSeconds()).padStart(2,'0');
+    const fname=`取件单_${pickupDate}_${pickupPerson}_${_cntH}_${_cntM}_${_cntS}.pdf`;
     await uploadPdfToR2(blob,fname);
     const pdfUrl1=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl1;
@@ -992,7 +993,8 @@ async function doExportShippingPDF(recipients){
     const _cnsNow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
     const _cnsH=String(_cnsNow.getHours()).padStart(2,'0');
     const _cnsM=String(_cnsNow.getMinutes()).padStart(2,'0');
-    const fname=`寄件单_${today}_${_cnsH}${_cnsM}.pdf`;
+    const _cnsS=String(_cnsNow.getSeconds()).padStart(2,'0');
+    const fname=`寄件单_${today}_${_cnsH}_${_cnsM}_${_cnsS}.pdf`;
     await uploadPdfToR2(blob,fname);
     const pdfUrl2=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl2;
