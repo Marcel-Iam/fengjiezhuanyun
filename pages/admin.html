@@ -819,8 +819,10 @@ async function doExportIncomingPDF(){
     await uploadPdfToR2(blob,fname);
     const pdfUrl1=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl1;
-    // 同时在当前页触发下载
-    const dlA1=document.createElement('a');dlA1.href=pdfUrl1;dlA1.download=fname;document.body.appendChild(dlA1);dlA1.click();document.body.removeChild(dlA1);
+    // 同时在当前页触发下载（用 blob URL 避免跨域导航）
+    const blobUrl1=URL.createObjectURL(blob);
+    const dlA1=document.createElement('a');dlA1.href=blobUrl1;dlA1.download=fname;document.body.appendChild(dlA1);dlA1.click();document.body.removeChild(dlA1);
+    setTimeout(()=>URL.revokeObjectURL(blobUrl1),2000);
     showToast('取件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
@@ -994,8 +996,10 @@ async function doExportShippingPDF(recipients){
     await uploadPdfToR2(blob,fname);
     const pdfUrl2=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl2;
-    // 同时在当前页触发下载
-    const dlA2=document.createElement('a');dlA2.href=pdfUrl2;dlA2.download=fname;document.body.appendChild(dlA2);dlA2.click();document.body.removeChild(dlA2);
+    // 同时在当前页触发下载（用 blob URL 避免跨域导航）
+    const blobUrl2=URL.createObjectURL(blob);
+    const dlA2=document.createElement('a');dlA2.href=blobUrl2;dlA2.download=fname;document.body.appendChild(dlA2);dlA2.click();document.body.removeChild(dlA2);
+    setTimeout(()=>URL.revokeObjectURL(blobUrl2),2000);
     showToast('寄件单已生成','success');
   }catch(e){showToast('生成失败: '+e.message,'error');console.error(e);}
   showLoading(false);
