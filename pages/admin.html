@@ -449,7 +449,7 @@ function renderIncoming(){
   const tot={};pids.forEach(id=>{tot[id]=0;});
   let h='<table class="data-table"><thead><tr>';
   if(isActive&&!editMode) h+='<th><input type="checkbox" onchange="togAll(\'incoming\',this.checked)"></th>';
-  h+='<th>订单号</th><th>取货码</th>';
+  h+='<th style="min-width:4em">填表人</th><th>订单号</th><th>取货码</th>';
   pids.forEach(id=>{h+=`<th class="qty-cell">${esc(id)}</th>`;});
   h+='<th>日期</th><th class="paid-col">已付运费</th>';
   if(editMode) h+='<th>操作</th>';
@@ -460,6 +460,7 @@ function renderIncoming(){
       h+='<tr>';
       if(ii===0){
         if(isActive&&!editMode) h+=`<td rowspan="${rowspan}" style="vertical-align:middle"><input type="checkbox" data-group="incoming" value="${o.id}"></td>`;
+        h+=`<td rowspan="${rowspan}" style="vertical-align:middle">${esc(o.created_by||'')}</td>`;
       }
       h+=`<td>${esc(inc.express_code)}</td><td>${esc(inc.pickup_code)}</td>`;
       pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
@@ -475,7 +476,7 @@ function renderIncoming(){
   if(isActive){
     h+='<tr class="total-row">';
     if(!editMode) h+='<td></td>';
-    h+='<td></td><td>合计</td>';
+    h+='<td colspan="2"></td><td>合计</td>';
     pids.forEach(id=>{h+=`<td class="qty-cell">${tot[id]}</td>`;});
     h+='<td></td><td></td>';
     if(editMode) h+='<td></td>';
@@ -776,15 +777,13 @@ async function doExportIncomingPDF(){
     const pids=prodIdsIn(selected);const tot={};pids.forEach(id=>{tot[id]=0;});
 
     const headerRow=[
-      {text:'填表人',style:'th'},{text:'订单号',style:'th'},{text:'取货码',style:'th'},
+      {text:'订单号',style:'th'},{text:'取货码',style:'th'},
       ...pids.map(id=>({text:id,style:'th',alignment:'center'}))
     ];
     const bodyRows=[];
     selected.forEach(o=>{
       o.incoming.forEach((inc,ii)=>{
         const row=[];
-        if(ii===0) row.push({text:o.created_by||'',rowSpan:o.incoming.length,style:'td'});
-        else row.push({});
         row.push({text:inc.express_code||'',style:'td'});
         row.push({text:inc.pickup_code||'',style:'td'});
         pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;row.push({text:q?String(q):'',style:'td',alignment:'center'});});
@@ -792,7 +791,7 @@ async function doExportIncomingPDF(){
       });
     });
     const totalRow=[
-      {text:'合计',colSpan:3,alignment:'right',style:'total',bold:true},{},{},
+      {text:'合计',colSpan:2,alignment:'right',style:'total',bold:true},{},
       ...pids.map(id=>({text:String(tot[id]),style:'total',alignment:'center',bold:true}))
     ];
 
@@ -807,7 +806,7 @@ async function doExportIncomingPDF(){
       content:[
         {text:'来件提货单',style:{fontSize:12,bold:true,alignment:'center'},margin:[0,0,0,4]},
         {text:`提货日期: ${pickupDate}　　提货人: ${pickupPerson}`,style:{fontSize:7},margin:[0,0,0,4]},
-        {table:{headerRows:1,widths:['auto','auto','auto',...pids.map(()=>22)],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'}
+        {table:{headerRows:1,widths:['auto','auto',...pids.map(()=>22)],body:[headerRow,...bodyRows,totalRow],dontBreakRows:true},layout:'gridLayout'}
       ]
     };
 
