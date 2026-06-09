@@ -1090,17 +1090,21 @@ function renderHistoryList(){
     const date=new Date(f.uploaded).toLocaleDateString('zh-CN');
     const size=Math.round(f.size/1024)+'KB';
     const orderIdList=(f.orderIds||'').split(',').filter(Boolean);
-    const allShipped=orderIdList.length>0&&orderIdList.every(id=>{const o=orders.find(x=>x.id===id);return o&&(pickup?o.picked_up:o.shipped);});
-    const shippedLabel=orderIdList.length>0?`<span style="color:${allShipped?'var(--success,#2e7d32)':'var(--warning,#e65100)'};">${allShipped?(pickup?'已全部标记取货':'已全部标记寄出'):(pickup?'未全部标记取货':'未全部标记寄出')}</span>`:'';
+    const allDone=orderIdList.length>0&&orderIdList.every(id=>{const o=orders.find(x=>x.id===id);return o&&(pickup?o.picked_up:o.shipped);});
+    const statusLabel=orderIdList.length>0?`<span style="color:${allDone?'var(--success,#2e7d32)':'var(--warning,#e65100)'};">${allDone?(pickup?'已全部标记取货':'已全部标记寄出'):(pickup?'未全部标记取货':'未全部标记寄出')}</span>`:'';
+    const expressCodes=orderIdList.flatMap(id=>{const o=orders.find(x=>x.id===id);return o?o.incoming.map(inc=>inc.express_code).filter(Boolean):[];});
+    const displayCodes=expressCodes.length?expressCodes.join('，'):orderIdList.join('，');
+    // 用逗号拼接传参，避免 JSON.stringify 双引号破坏 onclick 属性
+    const idsParam=orderIdList.join(',');
     h+=`<div class="history-item">
       <div class="history-info">
         <div class="history-date">${esc(f.key)}</div>
-        <div class="history-meta">${date} · ${size}${orderIdList.length?' · '+shippedLabel:''}</div>
-        ${orderIdList.length?`<div class="history-meta" style="margin-top:2px;word-break:break-all;">${orderIdList.join('，')}</div>`:''}
+        <div class="history-meta">${date} · ${size}${orderIdList.length?' · '+statusLabel:''}</div>
+        ${orderIdList.length?`<div class="history-meta" style="margin-top:2px;word-break:break-all;">${displayCodes}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+        ${orderIdList.length&&!allDone?`<button class="btn btn-outline btn-sm" onclick="markFromHistory('${idsParam}',${pickup})">${pickup?'标记已取货':'标记已寄出'}</button>`:''}
         <button class="btn btn-accent btn-sm" onclick="viewPdf('${esc(f.key)}')">查看</button>
-        ${orderIdList.length&&!allShipped?`<button class="btn btn-outline btn-sm" onclick="markFromHistory(${JSON.stringify(orderIdList)},${pickup})">${pickup?'标记已取货':'标记已寄出'}</button>`:''}
         ${histEditMode?`<button class="btn btn-danger btn-sm" onclick="deletePdfR2('${esc(f.key)}')">删除</button>`:''}
       </div>
     </div>`;
@@ -1110,7 +1114,8 @@ function renderHistoryList(){
 function viewPdf(key){
   window.open(`${API}/api/pdfs/${encodeURIComponent(key)}`,'_blank');
 }
-async function markFromHistory(orderIds,isPickup){
+async function markFromHistory(orderIdsStr,isPickup){
+  const orderIds=orderIdsStr.split(',').filter(Boolean);
   const field=isPickup?'picked_up':'shipped';
   const label=isPickup?'已取货':'已寄出';
   const pending=orders.filter(o=>orderIds.includes(o.id)&&!o[field]);
