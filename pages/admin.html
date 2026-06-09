@@ -1106,6 +1106,7 @@ function renderHistoryList(){
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
         ${orderIdList.length&&!allDone?`<button class="btn btn-outline btn-sm" onclick="markFromHistory('${idsParam}',${pickup})">${pickup?'标记已取货':'标记已寄出'}</button>`:''}
         <button class="btn btn-accent btn-sm" onclick="viewPdf('${esc(f.key)}')">查看</button>
+        ${histEditMode?`<button class="btn btn-outline btn-sm" onclick="editPdfOrderIds('${esc(f.key)}','${displayCodes}')">编辑订单号</button>`:''}
         ${histEditMode?`<button class="btn btn-danger btn-sm" onclick="deletePdfR2('${esc(f.key)}')">删除</button>`:''}
       </div>
     </div>`;
@@ -1129,6 +1130,44 @@ async function markFromHistory(orderIdsStr,isPickup){
     await loadOrders();
     renderHistoryList();
   }catch(e){showToast('标记失败: '+e.message,'error');}
+  showLoading(false);
+}
+async function editPdfOrderIds(key, currentCodes) {
+  const input = prompt(`输入该 PDF 对应的快递单号（多个用逗号分隔）：`, currentCodes);
+  if (input === null) return;
+  const expressCodes = input.split(/[，,]/).map(s => s.trim()).filter(Boolean);
+  if (!expressCodes.length) { showToast('没有输入任何单号', 'error'); return; }
+  // 按 express_code 找对应订单 ID
+  const orderIds = [];
+  const notFound = [];
+  expressCodes.forEach(code => {
+    const matched = orders.filter(o => o.incoming.some(inc => inc.express_code === code));
+    if (matched.length) {
+      matched.forEach(o => { if (!orderIds.includes(o.id)) orderIds.push(o.id); });
+    } else {
+      notFound.push(code);
+    }
+  });
+  if (notFound.length) {
+    if (!confirm(`以下单号找不到对应订单：${notFound.join('，')}\n\n继续保存已找到的 ${orderIds.length} 个订单？`)) return;
+  }
+  if (!orderIds.length) { showToast('没有找到对应订单', 'error'); return; }
+  showLoading(true);
+  try {
+    // 下载现有 PDF
+    const res = await fetch(`${API}/api/pdfs/${encodeURIComponent(key)}`, { headers: HEADERS });
+    if (!res.ok) throw new Error('下载 PDF 失败');
+    const blob = await res.blob();
+    // 重新上传，附上新 metadata
+    const fd = new FormData();
+    fd.append('file', blob, key);
+    fd.append('filename', key);
+    fd.append('orderIds', orderIds.join(','));
+    const upRes = await fetch(`${API}/api/pdfs/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
+    if (!upRes.ok) throw new Error('上传失败');
+    showToast('已更新', 'success');
+    await loadHistory();
+  } catch(e) { showToast('失败: ' + e.message, 'error'); }
   showLoading(false);
 }
 async function deletePdfR2(key){
