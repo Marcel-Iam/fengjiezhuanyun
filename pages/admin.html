@@ -466,7 +466,7 @@ function renderIncoming(){
       pids.forEach(id=>{const x=inc.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
       if(ii===0){
         h+=`<td rowspan="${rowspan}" style="vertical-align:middle;font-size:0.78rem;color:var(--text-light)">${new Date(o.created_at).toLocaleDateString('zh-CN')}</td>`;
-        h+=`<td rowspan="${rowspan}" class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+        h+=`<td rowspan="${rowspan}" class="paid-col"><input type="checkbox" data-paidall="${o.id}" ${o.paid_status?'checked':''} onchange="promptPaidStatusAll('${o.id}',this)"></td>`;
         if(editMode&&isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button></td>`;
         if(editMode&&!isActive) h+=`<td rowspan="${rowspan}" style="vertical-align:middle;white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnpicked('${o.id}')">未取货</button></td>`;
       }
@@ -484,6 +484,15 @@ function renderIncoming(){
   }
   h+='</tbody></table>';
   w.innerHTML=h;
+  // Set indeterminate state for partial paid_status
+  list.forEach(o=>{
+    const somePaid=o.outgoing.some(r=>r.paid_status);
+    const allPaid=o.outgoing.every(r=>r.paid_status);
+    if(somePaid&&!allPaid){
+      const cb=w.querySelector(`input[data-paidall="${o.id}"]`);
+      if(cb)cb.indeterminate=true;
+    }
+  });
 }
 
 // ===== Render Shipping =====
@@ -511,22 +520,34 @@ function renderShipping(){
     if(editMode&&isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-danger btn-sm" onclick="confirmDelete('${o.id}')">删除</button>`;
     if(editMode&&!isActive) actionHtml=`<button class="btn btn-outline btn-sm" onclick="openEditOverlay('${o.id}')">修改</button> <button class="btn btn-outline btn-sm" onclick="markUnshipped('${o.id}')">未寄出</button>`;
     o.outgoing.forEach((r,ri)=>{
+      const outUid=r.uid||`out_${o.id}_${ri}`;
+      const cbVal=`${o.id}:${outUid}`;
       h+='<tr>';
       if(ri===0){
-        if(isActive&&!editMode) h+=`<td rowspan="${rl}" style="vertical-align:middle"><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
+        // 未寄出视图：checkbox per outgoing（仅未寄出行）；已寄出视图：无checkbox
+        if(isActive&&!editMode){
+          if(!r.shipped) h+=`<td rowspan="1" style="vertical-align:middle"><input type="checkbox" data-group="shipping" value="${cbVal}"></td>`;
+          else h+=`<td style="vertical-align:middle;text-align:center;color:var(--success,#2e7d32)">✓</td>`;
+        }
         h+=`<td rowspan="${rl}" style="vertical-align:middle">${esc(o.created_by||'')}</td><td rowspan="${rl}" style="vertical-align:middle">${allCodes}</td>`;
+      } else {
+        if(isActive&&!editMode){
+          if(!r.shipped) h+=`<td style="vertical-align:middle"><input type="checkbox" data-group="shipping" value="${cbVal}"></td>`;
+          else h+=`<td style="vertical-align:middle;text-align:center;color:var(--success,#2e7d32)">✓</td>`;
+        }
       }
-      h+=`<td class="col-name">${esc(r.name)}</td><td><div class="addr-cell" title="${esc(r.address)}">${esc(r.address)}</div></td><td class="col-phone">${esc(r.phone)}</td>`;
+      h+=`<td class="col-name">${esc(r.name)}${r.shipped&&isActive?'<br><span style="color:var(--success,#2e7d32);font-size:0.75rem">已寄出</span>':''}</td><td><div class="addr-cell" title="${esc(r.address)}">${esc(r.address)}</div></td><td class="col-phone">${esc(r.phone)}</td>`;
       pids.forEach(id=>{const x=r.products.find(z=>z.product_id===id);const q=x?x.quantity:0;tot[id]+=q;h+=`<td class="qty-cell">${q||''}</td>`;});
       h+=`<td style="font-size:0.78rem">${esc(r.notes||'')}</td>`;
-      if(ri===0) h+=`<td rowspan="${rl}" class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+      // 已付运费：per outgoing
+      h+=`<td class="paid-col"><input type="checkbox" ${r.paid_status?'checked':''} onchange="promptPaidStatusOne('${o.id}','${outUid}',this)"></td>`;
       if(editMode&&ri===0) h+=`<td rowspan="${rl}" style="vertical-align:middle;white-space:nowrap">${actionHtml}</td>`;
       h+='</tr>';
     });
     if(!o.outgoing.length){
       h+='<tr>';
-      if(isActive&&!editMode) h+=`<td><input type="checkbox" data-group="shipping" value="${o.id}"></td>`;
-      h+=`<td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+1}">无收件人</td><td class="paid-col"><input type="checkbox" ${o.paid_status?'checked':''} onchange="promptPaidStatus('${o.id}',this)"></td>`;
+      if(isActive&&!editMode) h+=`<td><input type="checkbox" data-group="shipping" value="${o.id}:"></td>`;
+      h+=`<td>${esc(o.created_by||'')}</td><td>${allCodes}</td><td colspan="${3+pids.length+2}">无收件人</td>`;
       if(editMode) h+=`<td style="white-space:nowrap">${actionHtml}</td>`;
       h+='</tr>';
     }
@@ -560,15 +581,19 @@ async function markPickedUp(){
   showLoading(false);
 }
 async function markShipped(){
-  const ids=sel('shipping');if(!ids.length){showToast('请先勾选要标记的订单','error');return;}
-  if(!confirm(`确定将 ${ids.length} 个订单标记为已寄出？`))return;
+  const vals=sel('shipping');if(!vals.length){showToast('请先勾选要标记的收件人','error');return;}
+  if(!confirm(`确定将 ${vals.length} 个收件人标记为已寄出？`))return;
   showLoading(true);
   try{
-    for(const id of ids){
-      const o=orders.find(x=>x.id===id);if(!o)continue;
-      await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,shipped:true})});
-    }
-    await loadOrders();showToast(`${ids.length} 个订单已标记为已寄出`,'success');
+    // Group by order
+    const byOrder={};
+    vals.forEach(v=>{const [oid,uid]=v.split(':');if(!byOrder[oid])byOrder[oid]=[];if(uid)byOrder[oid].push(uid);});
+    await Promise.all(Object.entries(byOrder).map(([oid,uids])=>{
+      const o=orders.find(x=>x.id===oid);if(!o)return;
+      const updated={...o,outgoing:o.outgoing.map(r=>uids.includes(r.uid)?{...r,shipped:true}:r)};
+      return apiFetch(`/api/orders/${encodeURIComponent(oid)}`,{method:'PUT',body:JSON.stringify(updated)});
+    }));
+    await loadOrders();showToast(`${vals.length} 个收件人已标记为已寄出`,'success');
   }catch(e){showToast('操作失败: '+e.message,'error');}
   showLoading(false);
 }
@@ -579,41 +604,80 @@ async function markUnpicked(id){
   showLoading(false);
 }
 async function markUnshipped(id){
-  if(!confirm('确定将此订单改回未寄出状态？'))return;
+  if(!confirm('确定将此订单所有收件人改回未寄出状态？'))return;
   showLoading(true);
-  try{const o=orders.find(x=>x.id===id);if(o){await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,shipped:false})});await loadOrders();showToast('已改回未寄出','success');}}catch(e){showToast('操作失败: '+e.message,'error');}
+  try{
+    const o=orders.find(x=>x.id===id);
+    if(o){
+      const updated={...o,outgoing:o.outgoing.map(r=>({...r,shipped:false}))};
+      await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(updated)});
+      await loadOrders();showToast('已改回未寄出','success');
+    }
+  }catch(e){showToast('操作失败: '+e.message,'error');}
   showLoading(false);
 }
 
 // ===== Paid Status =====
-let pendingPaidId=null,pendingPaidCheckbox=null,pendingPaidValue=null;
-function promptPaidStatus(id,checkbox){
+let pendingPaidId=null,pendingPaidCheckbox=null,pendingPaidValue=null,pendingPaidOutUid=null;
+
+// 来件管理：操作订单所有 outgoing（indeterminate → checked 代表全付）
+function promptPaidStatusAll(id,checkbox){
   const o=orders.find(x=>x.id===id);if(!o)return;
   const newVal=checkbox.checked;
-  pendingPaidId=id;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;
+  pendingPaidId=id;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;pendingPaidOutUid=null;
   const codes=o.incoming.map(inc=>inc.express_code).join(', ');
   const msg=newVal?`确认订单 <strong>${esc(codes)}</strong> 的运费已收？`:`确认取消订单 <strong>${esc(codes)}</strong> 的已付运费状态？`;
   document.getElementById('paidConfirmMessage').innerHTML=msg;
-  const confirmBtn=document.querySelector('#paidConfirmModal .btn-success');
-  confirmBtn.textContent=newVal?'确认已收运费':'确认取消';
+  document.querySelector('#paidConfirmModal .btn-success').textContent=newVal?'确认已收运费':'确认取消';
   document.getElementById('paidConfirmModal').classList.add('active');
 }
+
+// 寄件管理：操作单个 outgoing
+function promptPaidStatusOne(orderId,outUid,checkbox){
+  const o=orders.find(x=>x.id===orderId);if(!o)return;
+  const r=o.outgoing.find(x=>x.uid===outUid);if(!r)return;
+  const newVal=checkbox.checked;
+  pendingPaidId=orderId;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;pendingPaidOutUid=outUid;
+  const codes=o.incoming.map(inc=>inc.express_code).join(', ');
+  const msg=newVal?`确认订单 <strong>${esc(codes)}</strong> 收件人 <strong>${esc(r.name)}</strong> 的运费已收？`
+                  :`确认取消订单 <strong>${esc(codes)}</strong> 收件人 <strong>${esc(r.name)}</strong> 的已付运费状态？`;
+  document.getElementById('paidConfirmMessage').innerHTML=msg;
+  document.querySelector('#paidConfirmModal .btn-success').textContent=newVal?'确认已收运费':'确认取消';
+  document.getElementById('paidConfirmModal').classList.add('active');
+}
+
 function cancelPaidConfirm(){
-  if(pendingPaidCheckbox)pendingPaidCheckbox.checked=!pendingPaidValue;
-  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;
+  if(pendingPaidCheckbox){pendingPaidCheckbox.checked=!pendingPaidValue;pendingPaidCheckbox.indeterminate=false;}
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;
   closeModal('paidConfirmModal');
 }
 function doPaidConfirm(){
   closeModal('paidConfirmModal');
   if(pendingPaidId===null)return;
-  savePaidStatus(pendingPaidId,pendingPaidValue);
-  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;
+  if(pendingPaidOutUid) savePaidStatusOne(pendingPaidId,pendingPaidOutUid,pendingPaidValue);
+  else savePaidStatusAll(pendingPaidId,pendingPaidValue);
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;
 }
-async function savePaidStatus(id,val){
+
+// 操作订单所有 outgoing 的 paid_status
+async function savePaidStatusAll(id,val){
   showLoading(true);
   try{
     const o=orders.find(x=>x.id===id);if(!o)return;
-    await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({...o,paid_status:val})});
+    const updated={...o,outgoing:o.outgoing.map(r=>({...r,paid_status:val}))};
+    await apiFetch(`/api/orders/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(updated)});
+    await loadOrders();showToast(val?'已标记为已付运费':'已标记为未付运费','success');
+  }catch(e){showToast('操作失败: '+e.message,'error');renderAll();}
+  showLoading(false);
+}
+
+// 操作单个 outgoing 的 paid_status
+async function savePaidStatusOne(orderId,outUid,val){
+  showLoading(true);
+  try{
+    const o=orders.find(x=>x.id===orderId);if(!o)return;
+    const updated={...o,outgoing:o.outgoing.map(r=>r.uid===outUid?{...r,paid_status:val}:r)};
+    await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`,{method:'PUT',body:JSON.stringify(updated)});
     await loadOrders();showToast(val?'已标记为已付运费':'已标记为未付运费','success');
   }catch(e){showToast('操作失败: '+e.message,'error');renderAll();}
   showLoading(false);
@@ -681,6 +745,9 @@ function addERecipient(data=null){
   eRecipientCount++;const n=eRecipientCount;const c=document.getElementById('eRecipientList');const d=document.createElement('div');
   d.className='recipient-card';d.id=`ercp-${n}`;
   d.innerHTML=`<div class="recipient-header"><span>收件人 #${n}</span><button class="btn btn-danger btn-sm" onclick="document.getElementById('ercp-${n}').remove()">删除</button></div>
+    <input type="hidden" class="r-uid" value="${esc(data?.uid||'')}">
+    <input type="hidden" class="r-shipped" value="${data?.shipped||false}">
+    <input type="hidden" class="r-paid-status" value="${data?.paid_status||false}">
     <div class="form-row"><div class="form-group"><label>姓名</label><input type="text" class="r-name" value="${esc(data?.name||'')}"></div><div class="form-group"><label>电话</label><input type="text" class="r-phone" value="${esc(data?.phone||'')}"></div></div>
     <div class="form-group" style="margin-bottom:12px;"><label>地址</label><input type="text" class="r-address" value="${esc(data?.address||'')}"></div>
     <label style="font-size:0.8rem;color:var(--text-light);display:block;margin-bottom:4px;">产品</label><div class="r-products"></div>
@@ -723,7 +790,10 @@ function collectEditData(){
       const s=l.querySelector('select');const q=parseInt(l.querySelector('input').value)||0;
       if(s.value&&q>0){const prod=products.find(p=>p.id===s.value);rp.push({product_id:s.value,product_name:prod?prod.product_name:s.value,quantity:q});}
     });
-    if(name||phone||address||rp.length||notes) outgoing.push({name,phone,address,products:rp,notes});
+    const rUid=card.querySelector('.r-uid')?.value||'';
+    const rShipped=card.querySelector('.r-shipped')?.value==='true';
+    const rPaidStatus=card.querySelector('.r-paid-status')?.value==='true';
+    if(name||phone||address||rp.length||notes) outgoing.push({uid:rUid,shipped:rShipped,paid_status:rPaidStatus,name,phone,address,products:rp,notes});
   });
   return{...editingOrder,created_by:createdBy,incoming,outgoing};
 }
@@ -842,13 +912,17 @@ const TRAD_TO_SIMP={
 function toSimp(str){return str.split('').map(c=>TRAD_TO_SIMP[c]||c).join('');}
 
 async function exportShippingPDF(){
-  const ids=sel('shipping');if(!ids.length){showToast('请先勾选要导出的订单','error');return;}
-  const selected=orders.filter(o=>ids.includes(o.id));
+  const vals=sel('shipping');if(!vals.length){showToast('请先勾选要导出的收件人','error');return;}
+  // vals are 'orderId:outUid' strings
   let allRecipients=[];
-  selected.forEach(o=>{o.outgoing.forEach(r=>{
+  vals.forEach(v=>{
+    const [oid,uid]=v.split(':');
+    const o=orders.find(x=>x.id===oid);if(!o)return;
+    const r=o.outgoing.find(x=>x.uid===uid);if(!r)return;
     const simpName=toSimp(r.name.trim());
-    allRecipients.push({...r, name: simpName, _origName: r.name, _orderId: o.id});
-  });});
+    allRecipients.push({...r,name:simpName,_origName:r.name,_orderId:oid,_outUid:uid});
+  });
+  if(!allRecipients.length){showToast('找不到对应收件人','error');return;}
 
   const groups=[];
   const assigned=new Set();
@@ -868,11 +942,11 @@ async function exportShippingPDF(){
     pendingShippingRecipients=allRecipients;
     pendingShippingDups=groups;
     pendingShippingMergeAnswers={};
-    pendingShippingOrderIds=ids;
+    pendingShippingOrderIds=vals;
     showMergePromptGroup(0);
     return;
   }
-  doExportShippingPDF(allRecipients,ids);
+  doExportShippingPDF(allRecipients,vals);
 }
 
 let pendingShippingRecipients=[];let pendingShippingDups=[];let pendingShippingMergeAnswers={};let pendingShippingOrderIds=[];
@@ -1090,13 +1164,21 @@ function renderHistoryList(){
   list.forEach(f=>{
     const date=new Date(f.uploaded).toLocaleDateString('zh-CN');
     const size=Math.round(f.size/1024)+'KB';
-    const orderIdList=(f.orderIds||'').split(',').filter(Boolean);
-    const allDone=orderIdList.length>0&&orderIdList.every(id=>{const o=orders.find(x=>x.id===id);return o&&(pickup?o.picked_up:o.shipped);});
-    const statusLabel=orderIdList.length>0?`<span style="color:${allDone?'var(--success,#2e7d32)':'var(--warning,#e65100)'};">${allDone?(pickup?'已全部标记取货':'已全部标记寄出'):(pickup?'未全部标记取货':'未全部标记寄出')}</span>`:'';
-    const expressCodes=orderIdList.flatMap(id=>{const o=orders.find(x=>x.id===id);return o?o.incoming.map(inc=>inc.express_code).filter(Boolean):[];});
-    const displayCodes=expressCodes.length?expressCodes.join('，'):orderIdList.join('，');
-    // 用逗号拼接传参，避免 JSON.stringify 双引号破坏 onclick 属性
-    const idsParam=orderIdList.join(',');
+    const rawList=(f.orderIds||'').split(',').filter(Boolean);
+    // 新格式寄件单 metadata 是 orderId:outUid；取件单和旧寄件单是纯 orderId
+    const isNewShipFmt=!pickup&&rawList.some(p=>p.includes(':'));
+    const uniqueOrderIds=isNewShipFmt?[...new Set(rawList.map(p=>p.split(':')[0]))]:rawList;
+    const orderIdList=rawList;
+    let allDone=false;
+    if(rawList.length>0){
+      if(pickup) allDone=uniqueOrderIds.every(id=>{const o=orders.find(x=>x.id===id);return o&&o.picked_up;});
+      else if(isNewShipFmt) allDone=rawList.every(p=>{const[oid,uid]=p.split(':');const o=orders.find(x=>x.id===oid);if(!o)return true;const r=o.outgoing.find(x=>x.uid===uid);return r?r.shipped:true;});
+      else allDone=uniqueOrderIds.every(id=>{const o=orders.find(x=>x.id===id);return o&&o.shipped;});
+    }
+    const statusLabel=rawList.length>0?`<span style="color:${allDone?'var(--success,#2e7d32)':'var(--warning,#e65100)'};">${allDone?(pickup?'已全部标记取货':'已全部标记寄出'):(pickup?'未全部标记取货':'未全部标记寄出')}</span>`:'';
+    const expressCodes=uniqueOrderIds.flatMap(id=>{const o=orders.find(x=>x.id===id);return o?o.incoming.map(inc=>inc.express_code).filter(Boolean):[];});
+    const displayCodes=expressCodes.length?expressCodes.join('，'):uniqueOrderIds.join('，');
+    const idsParam=rawList.join(',');
     h+=`<div class="history-item">
       <div class="history-info">
         <div class="history-date">${esc(f.key)}</div>
@@ -1116,17 +1198,45 @@ function renderHistoryList(){
 function viewPdf(key){
   window.open(`${API}/api/pdfs/${encodeURIComponent(key)}`,'_blank');
 }
-async function markFromHistory(orderIdsStr,isPickup){
-  const orderIds=orderIdsStr.split(',').filter(Boolean);
-  const field=isPickup?'picked_up':'shipped';
-  const label=isPickup?'已取货':'已寄出';
-  const pending=orders.filter(o=>orderIds.includes(o.id)&&!o[field]);
-  if(!pending.length){showToast(`这批订单已全部标记为${label}`,'success');return;}
-  if(!confirm(`确定将 ${pending.length} 个订单标记为${label}？`))return;
+async function markFromHistory(rawStr,isPickup){
+  const rawList=rawStr.split(',').filter(Boolean);
+  if(!rawList.length)return;
   showLoading(true);
   try{
-    await Promise.all(pending.map(o=>apiFetch(`/api/orders/${o.id}`,{method:'PUT',body:JSON.stringify({...o,[field]:true})})));
-    showToast(`已标记 ${pending.length} 个订单为${label}`,'success');
+    if(isPickup){
+      // 取件单：订单级别
+      const pending=orders.filter(o=>rawList.includes(o.id)&&!o.picked_up);
+      if(!pending.length){showToast('这批订单已全部标记为已取货','success');showLoading(false);return;}
+      if(!confirm(`确定将 ${pending.length} 个订单标记为已取货？`)){showLoading(false);return;}
+      await Promise.all(pending.map(o=>apiFetch(`/api/orders/${o.id}`,{method:'PUT',body:JSON.stringify({...o,outgoing:o.outgoing.map(r=>({...r})),picked_up:true})})));
+      showToast(`已标记 ${pending.length} 个订单为已取货`,'success');
+    } else {
+      const isNewFmt=rawList.some(p=>p.includes(':'));
+      if(isNewFmt){
+        // 新格式：orderId:outUid 对
+        const byOrder={};
+        rawList.forEach(p=>{const[oid,uid]=p.split(':');if(!byOrder[oid])byOrder[oid]=[];if(uid)byOrder[oid].push(uid);});
+        const totalPending=rawList.filter(p=>{const[oid,uid]=p.split(':');const o=orders.find(x=>x.id===oid);if(!o)return false;const r=o.outgoing.find(x=>x.uid===uid);return r&&!r.shipped;}).length;
+        if(!totalPending){showToast('这批收件人已全部标记为已寄出','success');showLoading(false);return;}
+        if(!confirm(`确定将 ${totalPending} 个收件人标记为已寄出？`)){showLoading(false);return;}
+        await Promise.all(Object.entries(byOrder).map(([oid,uids])=>{
+          const o=orders.find(x=>x.id===oid);if(!o)return;
+          const updated={...o,outgoing:o.outgoing.map(r=>uids.includes(r.uid)?{...r,shipped:true}:r)};
+          return apiFetch(`/api/orders/${oid}`,{method:'PUT',body:JSON.stringify(updated)});
+        }));
+        showToast(`已标记 ${totalPending} 个收件人为已寄出`,'success');
+      } else {
+        // 旧格式：订单级别，标记所有 outgoing
+        const pending=orders.filter(o=>rawList.includes(o.id)&&!o.shipped);
+        if(!pending.length){showToast('这批订单已全部标记为已寄出','success');showLoading(false);return;}
+        if(!confirm(`确定将 ${pending.length} 个订单标记为已寄出？`)){showLoading(false);return;}
+        await Promise.all(pending.map(o=>{
+          const updated={...o,outgoing:o.outgoing.map(r=>({...r,shipped:true}))};
+          return apiFetch(`/api/orders/${o.id}`,{method:'PUT',body:JSON.stringify(updated)});
+        }));
+        showToast(`已标记 ${pending.length} 个订单为已寄出`,'success');
+      }
+    }
     await loadOrders();
     renderHistoryList();
   }catch(e){showToast('标记失败: '+e.message,'error');}
@@ -1138,20 +1248,26 @@ async function editPdfOrderIds(key, currentCodes) {
   const expressCodes = input.split(/[，,]/).map(s => s.trim()).filter(Boolean);
   if (!expressCodes.length) { showToast('没有输入任何单号', 'error'); return; }
   // 按 express_code 找对应订单 ID
-  const orderIds = [];
+  const matchedOrders = [];
   const notFound = [];
   expressCodes.forEach(code => {
     const matched = orders.filter(o => o.incoming.some(inc => inc.express_code === code));
-    if (matched.length) {
-      matched.forEach(o => { if (!orderIds.includes(o.id)) orderIds.push(o.id); });
-    } else {
-      notFound.push(code);
-    }
+    if (matched.length) matched.forEach(o => { if (!matchedOrders.find(x=>x.id===o.id)) matchedOrders.push(o); });
+    else notFound.push(code);
   });
   if (notFound.length) {
-    if (!confirm(`以下单号找不到对应订单：${notFound.join('，')}\n\n继续保存已找到的 ${orderIds.length} 个订单？`)) return;
+    if (!confirm(`以下单号找不到对应订单：${notFound.join('，')}\n\n继续保存已找到的 ${matchedOrders.length} 个订单？`)) return;
   }
-  if (!orderIds.length) { showToast('没有找到对应订单', 'error'); return; }
+  if (!matchedOrders.length) { showToast('没有找到对应订单', 'error'); return; }
+  // 寄件单用 orderId:outUid 格式，取件单用纯 orderId
+  const isShipPdf = key.startsWith('寄件单');
+  let metaIds;
+  if (isShipPdf) {
+    metaIds = matchedOrders.flatMap(o => o.outgoing.map(r => `${o.id}:${r.uid||''}`));
+  } else {
+    metaIds = matchedOrders.map(o => o.id);
+  }
+  if (!metaIds.length) { showToast('没有找到对应订单', 'error'); return; }
   showLoading(true);
   try {
     // 下载现有 PDF
@@ -1162,7 +1278,7 @@ async function editPdfOrderIds(key, currentCodes) {
     const fd = new FormData();
     fd.append('file', blob, key);
     fd.append('filename', key);
-    fd.append('orderIds', orderIds.join(','));
+    fd.append('orderIds', metaIds.join(','));
     const upRes = await fetch(`${API}/api/pdfs/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
     if (!upRes.ok) throw new Error('上传失败');
     showToast('已更新', 'success');
