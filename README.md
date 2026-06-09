@@ -77,13 +77,16 @@ CREATE TABLE orders (
   ],
   "outgoing": [
     {
+      "uid": "out_ORD_1715200000001_a1b2_0",
       "name": "林京子",
       "phone": "13124341581",
       "address": "辽宁省沈阳市沈北新区...",
       "products": [
         { "product_id": "am", "product_name": "AM丸Cap (瓶)", "quantity": 24 }
       ],
-      "notes": ""
+      "notes": "",
+      "shipped": false,
+      "paid_status": false
     }
   ]
 }
@@ -98,7 +101,11 @@ CREATE TABLE orders (
 - `source`：`manual`（手动填单）或 `wechat`（微信客服）
 - `external_userid`：微信客户的唯一 ID（`wm` 开头），用于识别哪个账号提交了订单
 - `incoming`：来件信息数组，每张来件单有 `express_code`、`pickup_code`、`products`
-- `outgoing`：收件人列表，每个收件人有 `name`、`phone`、`address`、`products`、`notes`
+- `outgoing`：收件人列表，每个收件人有 `uid`、`name`、`phone`、`address`、`products`、`notes`、`shipped`、`paid_status`
+- `outgoing[].uid`：格式 `out_{订单ID}_{序号}`，Worker 自动生成，旧数据在首次读取时自动补全
+- `outgoing[].shipped`：该收件人是否已寄出（收件人级别）
+- `outgoing[].paid_status`：该收件人运费是否已收（收件人级别）
+- 订单级别的 `shipped` / `paid_status`：由 Worker 从所有 outgoing 推导（全部为 true 才为 true），不由前端直接写入
 
 ### products 表
 
@@ -335,15 +342,15 @@ AI 解析行为：
 
 顶部分页栏右侧有「+ 添加订单」按钮，弹出 overlay 直接在后台新建订单。
 
-**来件管理：** 未取货 / 已取货子视图。产品列显示短码，已付运费 checkbox 勾选/取消都弹确认框。支持生成取件单 PDF（PDF 内不含填表人列，管理后台表格保留）、批量标记已取货。
+**来件管理：** 未取货 / 已取货子视图。产品列显示短码。已付运费 checkbox 操作该订单所有 outgoing：全部已付显示勾选，全部未付显示空，部分已付显示 indeterminate（斜线）。勾选/取消都弹确认框。支持生成取件单 PDF（PDF 内不含填表人列，管理后台表格保留）、批量标记已取货。
 
-**寄件管理：** 未寄出 / 已寄出子视图。订单号列显示所有来件单号，未取货时订单号下方换行显示红色"(未取货)"标注。
+**寄件管理：** 未寄出 / 已寄出子视图。订单号列显示所有来件单号，未取货时订单号下方换行显示红色"(未取货)"标注。checkbox 和已付运费均为收件人（outgoing）级别，每行独立勾选。已寄出的收件人行在未寄出视图里显示绿色 ✓，没有 checkbox。部分收件人寄出的订单留在未寄出视图，全部寄出才移入已寄出视图。
 
-**修改订单 Overlay：** 来件和收件人卡片可增删，保存前做数量校验。`paid_status` 只能从表格 checkbox 修改。
+**修改订单 Overlay：** 来件和收件人卡片可增删，保存前做数量校验。`paid_status` 和 `shipped` 只能从表格 checkbox / 标记按钮修改，overlay 保存时自动保留原值。
 
 **历史档案：** PDF 用 pdfmake 在浏览器生成（真实文字，可复制），开新分页显示，同时存档到 R2。字体 `NotoSansSC-Regular.ttf` 存在 R2 bucket，登录后台时在后台预热下载（约 15-30 秒，取决于网速），之后页面内缓存，第二次点生成即时完成。
 
-生成取件单 / 寄件单时，对应的订单 ID 列表以逗号拼接存入 R2 对象的 `customMetadata.orderIds`。历史档案列表读取时附带此字段，取件单和寄件单条目均显示对应的六位订单号（`express_code`）、当前标记状态（橙色"未全部标记"/ 绿色"已全部标记"），以及「标记已取货」/「标记已寄出」按钮，点击后批量更新订单状态并刷新列表。旧档案（无 `orderIds`）不显示额外信息，行为不变。
+生成取件单 / 寄件单时，选中项存入 R2 对象的 `customMetadata.orderIds`。取件单存纯订单 ID（逗号分隔），寄件单存 `订单ID:outgoing_uid` 对（逗号分隔，收件人级别）。历史档案列表显示对应的六位快递单号（`express_code`）、标记状态（橙色未全部 / 绿色已全部），以及「标记已取货」/「标记已寄出」按钮。取件单标记为订单级别（`picked_up`），寄件单标记为收件人级别（`outgoing.shipped`），旧格式寄件单（无 `:` 的纯订单 ID）退化为订单级别标记。旧档案（无 `orderIds`）不显示额外信息，行为不变。
 
 **产品管理：** 每个产品有永久 `uid`，改名或改 id 时自动同步所有订单里的引用。
 
@@ -354,6 +361,8 @@ AI 解析行为：
 **表格通用行为：**
 - 所有表格表头 sticky，纵向滚动时保持可见
 - 已付运费列 sticky 固定右侧，横向滚动时保持可见，来件和寄件管理都有
+- 编辑模式下操作列也 sticky，紧贴已付运费列左侧，偏移量由 `fixStickyOffset()` 在渲染后动态测量
+- 切换 tab 自动退出编辑模式
 - 产品数量列水平和垂直居中
 - 合并收件人弹窗有 X 关闭按钮，点击取消整个导出流程
 
@@ -408,5 +417,8 @@ wrangler deploy
     - 寄件单：`寄件单_日期_HH_MM_SS.pdf`（例：`寄件单_2025-05-28_14_30_05.pdf`）
     - 时间以中国时间（Asia/Shanghai）为准
 22. 取件单 PDF 内不含填表人列（管理后台表格仍显示）。寄件单合并收件人时，所有被合并行的备注用"；"连接保留，不会因取第一行而丢失备注
-23. 历史档案的订单 ID 存在 R2 `customMetadata.orderIds`（逗号分隔字符串）。`/api/pdfs` GET 需加 `include: ['customMetadata']` 才能读取，上传时通过 FormData 的 `orderIds` 字段传入。取件单传 `pendingExportIds`，寄件单传选中的 `ids`（合并弹窗流程通过 `pendingShippingOrderIds` 全局变量中转）
+23. 历史档案 metadata 格式：取件单存纯订单 ID，寄件单存 `订单ID:outgoing_uid` 对。`/api/pdfs` GET 需加 `include: ['customMetadata']` 才能读取，上传时通过 FormData `orderIds` 字段传入。取件单传 `pendingExportIds`，寄件单传 `orderId:outUid` 数组（合并弹窗通过 `pendingShippingOrderIds` 中转）。`markFromHistory` 检测是否含 `:` 来区分新旧格式
 24. 字体加载用 `_pdfFontPromise` 缓存进行中的 Promise，避免预热和用户点击并发时重复下载
+25. `outgoing` 收件人级别 `shipped` / `paid_status`：Worker 在 `deserializeOrder` 自动补全旧数据（继承订单级字段值），`createOrder` / `updateOrder` 均自动推导订单级字段。无需手动 SQL 迁移，懒加载方式在首次 PUT 时持久化
+26. 来件管理已付运费 checkbox indeterminate 状态：渲染时写 `data-indet="true"` attribute，点击时从该 attribute 读取（浏览器在 onchange 触发前已清除 `checkbox.indeterminate`，直接读会永远是 false）
+27. 寄件单生成：`sel('shipping')` 返回 `orderId:outUid` 字符串，`exportShippingPDF` 按 uid 找对应 outgoing 条目组装 recipients。已寄出的收件人行无 checkbox，无法被选中
