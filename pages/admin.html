@@ -817,7 +817,7 @@ async function doExportIncomingPDF(){
     const _cntM=String(_cntNow.getMinutes()).padStart(2,'0');
     const _cntS=String(_cntNow.getSeconds()).padStart(2,'0');
     const fname=`取件单_${pickupDate}_${pickupPerson}_${_cntH}_${_cntM}_${_cntS}.pdf`;
-    await uploadPdfToR2(blob,fname);
+    await uploadPdfToR2(blob,fname,pendingExportIds);
     const pdfUrl1=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl1;
     // 同时在当前页触发下载（用 blob URL 避免跨域导航）
@@ -868,13 +868,14 @@ async function exportShippingPDF(){
     pendingShippingRecipients=allRecipients;
     pendingShippingDups=groups;
     pendingShippingMergeAnswers={};
+    pendingShippingOrderIds=ids;
     showMergePromptGroup(0);
     return;
   }
-  doExportShippingPDF(allRecipients);
+  doExportShippingPDF(allRecipients,ids);
 }
 
-let pendingShippingRecipients=[];let pendingShippingDups=[];let pendingShippingMergeAnswers={};
+let pendingShippingRecipients=[];let pendingShippingDups=[];let pendingShippingMergeAnswers={};let pendingShippingOrderIds=[];
 
 function showMergePromptGroup(idx){
   if(idx>=pendingShippingDups.length){
@@ -890,7 +891,7 @@ function showMergePromptGroup(idx){
       merged.products=Object.values(prodMap);
       recipients=[...others,merged];
     });
-    doExportShippingPDF(recipients);
+    doExportShippingPDF(recipients,pendingShippingOrderIds);
     return;
   }
   const group=pendingShippingDups[idx];
@@ -941,7 +942,7 @@ function doMergeCancel(){
   pendingShippingMergeAnswers={};
 }
 
-async function doExportShippingPDF(recipients){
+async function doExportShippingPDF(recipients,orderIds=[]){
   showLoading(true);
   try{
     const pids=[...new Set(recipients.flatMap(r=>r.products.map(p=>p.product_id)))];
@@ -995,7 +996,7 @@ async function doExportShippingPDF(recipients){
     const _cnsM=String(_cnsNow.getMinutes()).padStart(2,'0');
     const _cnsS=String(_cnsNow.getSeconds()).padStart(2,'0');
     const fname=`寄件单_${today}_${_cnsH}_${_cnsM}_${_cnsS}.pdf`;
-    await uploadPdfToR2(blob,fname);
+    await uploadPdfToR2(blob,fname,orderIds);
     const pdfUrl2=`${API}/api/pdfs/${encodeURIComponent(fname)}`;
     pdfWin.location.href=pdfUrl2;
     // 同时在当前页触发下载（用 blob URL 避免跨域导航）
@@ -1057,11 +1058,12 @@ async function genPdfFromDocDef(docDef) {
   });
 }
 
-async function uploadPdfToR2(blob, filename) {
+async function uploadPdfToR2(blob, filename, orderIds=[]) {
   try {
     const fd = new FormData();
     fd.append('file', blob, filename);
     fd.append('filename', filename);
+    fd.append('orderIds', orderIds.join(','));
     await fetch(`${API}/api/pdfs/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
   } catch(e) { console.error('R2 upload failed:', e); }
 }
@@ -1087,13 +1089,18 @@ function renderHistoryList(){
   list.forEach(f=>{
     const date=new Date(f.uploaded).toLocaleDateString('zh-CN');
     const size=Math.round(f.size/1024)+'KB';
+    const orderIdList=(f.orderIds||'').split(',').filter(Boolean);
+    const allShipped=orderIdList.length>0&&orderIdList.every(id=>{const o=orders.find(x=>x.id===id);return o&&(pickup?o.picked_up:o.shipped);});
+    const shippedLabel=orderIdList.length>0?`<span style="color:${allShipped?'var(--success,#2e7d32)':'var(--warning,#e65100)'};">${allShipped?(pickup?'已全部标记取货':'已全部标记寄出'):(pickup?'未全部标记取货':'未全部标记寄出')}</span>`:'';
     h+=`<div class="history-item">
       <div class="history-info">
         <div class="history-date">${esc(f.key)}</div>
-        <div class="history-meta">${date} · ${size}</div>
+        <div class="history-meta">${date} · ${size}${orderIdList.length?' · '+shippedLabel:''}</div>
+        ${orderIdList.length?`<div class="history-meta" style="margin-top:2px;word-break:break-all;">${orderIdList.join('，')}</div>`:''}
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
+      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
         <button class="btn btn-accent btn-sm" onclick="viewPdf('${esc(f.key)}')">查看</button>
+        ${orderIdList.length&&!allShipped?`<button class="btn btn-outline btn-sm" onclick="markFromHistory(${JSON.stringify(orderIdList)},${pickup})">${pickup?'标记已取货':'标记已寄出'}</button>`:''}
         ${histEditMode?`<button class="btn btn-danger btn-sm" onclick="deletePdfR2('${esc(f.key)}')">删除</button>`:''}
       </div>
     </div>`;
@@ -1102,6 +1109,21 @@ function renderHistoryList(){
 }
 function viewPdf(key){
   window.open(`${API}/api/pdfs/${encodeURIComponent(key)}`,'_blank');
+}
+async function markFromHistory(orderIds,isPickup){
+  const field=isPickup?'picked_up':'shipped';
+  const label=isPickup?'已取货':'已寄出';
+  const pending=orders.filter(o=>orderIds.includes(o.id)&&!o[field]);
+  if(!pending.length){showToast(`这批订单已全部标记为${label}`,'success');return;}
+  if(!confirm(`确定将 ${pending.length} 个订单标记为${label}？`))return;
+  showLoading(true);
+  try{
+    await Promise.all(pending.map(o=>apiFetch(`/api/orders/${o.id}`,{method:'PUT',body:JSON.stringify({...o,[field]:true})})));
+    showToast(`已标记 ${pending.length} 个订单为${label}`,'success');
+    await loadOrders();
+    renderHistoryList();
+  }catch(e){showToast('标记失败: '+e.message,'error');}
+  showLoading(false);
 }
 async function deletePdfR2(key){
   if(!confirm(`确定删除 ${key}？`))return;
