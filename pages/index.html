@@ -940,6 +940,9 @@ function addRecipient(data = null) {
       <span>收件人 #${n}</span>
       <button class="btn btn-danger btn-small" onclick="removeRecipient(${n})">删除</button>
     </div>
+    <input type="hidden" class="r-uid" value="${esc(data?.uid || '')}">
+    <input type="hidden" class="r-shipped" value="${data?.shipped || false}">
+    <input type="hidden" class="r-paid-status" value="${data?.paid_status || false}">
     <div class="form-row">
       <div class="form-group">
         <label>姓名</label>
@@ -1124,7 +1127,10 @@ function collectOrderData(existingOrder = null) {
       }
     });
     if (!name && !phone && !address && !rp.length && !notes) continue;
-    outgoing.push({ name, phone, address, products: rp, notes });
+    const rUid = card.querySelector('.r-uid')?.value || '';
+    const rShipped = card.querySelector('.r-shipped')?.value === 'true';
+    const rPaidStatus = card.querySelector('.r-paid-status')?.value === 'true';
+    outgoing.push({ uid: rUid, shipped: rShipped, paid_status: rPaidStatus, name, phone, address, products: rp, notes });
   }
 
   const base = existingOrder || {};
