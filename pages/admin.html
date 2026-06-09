@@ -1010,44 +1010,46 @@ async function doExportShippingPDF(recipients,orderIds=[]){
 
 // pdfmake 字体缓存
 let _pdfFontLoaded = false;
+let _pdfFontPromise = null;
 
 async function ensurePdfFont() {
   if (_pdfFontLoaded) return;
-  const fontUrl = `${API}/api/pdfs/NotoSansSC-Regular.ttf`;
-  const res = await fetch(fontUrl, { headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
-  if (!res.ok) throw new Error('字体加载失败');
-  const blob = await res.blob();
-  // 用 FileReader 异步转 base64，比主线程字符串拼接快 5-10x
-  const b64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-  pdfMake.vfs = pdfMake.vfs || {};
-  pdfMake.vfs['NotoSansSC-Regular.ttf'] = b64;
-  pdfMake.fonts = {
-    NotoSansSC: {
-      normal:      'NotoSansSC-Regular.ttf',
-      bold:        'NotoSansSC-Regular.ttf',
-      italics:     'NotoSansSC-Regular.ttf',
-      bolditalics: 'NotoSansSC-Regular.ttf',
-    }
-  };
-  _pdfFontLoaded = true;
-
-  // 自定义网格布局（含竖线）
-  pdfMake.tableLayouts = pdfMake.tableLayouts || {};
-  pdfMake.tableLayouts.gridLayout = {
-    hLineWidth: (i, node) => i === 0 || i === node.table.body.length ? 1 : 0.5,
-    vLineWidth: (i, node) => i === 0 || i === node.table.widths.length ? 1 : 0.5,
-    hLineColor: () => '#aaaaaa',
-    vLineColor: () => '#aaaaaa',
-    paddingLeft:   () => 2,
-    paddingRight:  () => 2,
-    paddingTop:    () => 2,
-    paddingBottom: () => 2,
-  };
+  if (_pdfFontPromise) return _pdfFontPromise;
+  _pdfFontPromise = (async () => {
+    const fontUrl = `${API}/api/pdfs/NotoSansSC-Regular.ttf`;
+    const res = await fetch(fontUrl, { headers: { 'Authorization': `Bearer ${CONFIG.adminToken}` } });
+    if (!res.ok) throw new Error('字体加载失败');
+    const blob = await res.blob();
+    const b64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    pdfMake.vfs = pdfMake.vfs || {};
+    pdfMake.vfs['NotoSansSC-Regular.ttf'] = b64;
+    pdfMake.fonts = {
+      NotoSansSC: {
+        normal:      'NotoSansSC-Regular.ttf',
+        bold:        'NotoSansSC-Regular.ttf',
+        italics:     'NotoSansSC-Regular.ttf',
+        bolditalics: 'NotoSansSC-Regular.ttf',
+      }
+    };
+    pdfMake.tableLayouts = pdfMake.tableLayouts || {};
+    pdfMake.tableLayouts.gridLayout = {
+      hLineWidth: (i, node) => i === 0 || i === node.table.body.length ? 1 : 0.5,
+      vLineWidth: (i, node) => i === 0 || i === node.table.widths.length ? 1 : 0.5,
+      hLineColor: () => '#aaaaaa',
+      vLineColor: () => '#aaaaaa',
+      paddingLeft:   () => 2,
+      paddingRight:  () => 2,
+      paddingTop:    () => 2,
+      paddingBottom: () => 2,
+    };
+    _pdfFontLoaded = true;
+  })();
+  return _pdfFontPromise;
 }
 
 async function genPdfFromDocDef(docDef) {
