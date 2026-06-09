@@ -341,7 +341,9 @@ AI 解析行为：
 
 **修改订单 Overlay：** 来件和收件人卡片可增删，保存前做数量校验。`paid_status` 只能从表格 checkbox 修改。
 
-**历史档案：** PDF 用 pdfmake 在浏览器生成（真实文字，可复制），开新分页显示，同时存档到 R2。字体 `NotoSansSC-Regular.ttf` 存在 R2 bucket，首次生成时下载并缓存，后续无需重新加载。
+**历史档案：** PDF 用 pdfmake 在浏览器生成（真实文字，可复制），开新分页显示，同时存档到 R2。字体 `NotoSansSC-Regular.ttf` 存在 R2 bucket，登录后台时在后台预热下载（约 15-30 秒，取决于网速），之后页面内缓存，第二次点生成即时完成。
+
+生成取件单 / 寄件单时，对应的订单 ID 列表以逗号拼接存入 R2 对象的 `customMetadata.orderIds`。历史档案列表读取时附带此字段，取件单和寄件单条目均显示对应的六位订单号（`express_code`）、当前标记状态（橙色"未全部标记"/ 绿色"已全部标记"），以及「标记已取货」/「标记已寄出」按钮，点击后批量更新订单状态并刷新列表。旧档案（无 `orderIds`）不显示额外信息，行为不变。
 
 **产品管理：** 每个产品有永久 `uid`，改名或改 id 时自动同步所有订单里的引用。
 
@@ -399,10 +401,12 @@ wrangler deploy
 16. AI 解析预览气泡：有 warnings 时显示黄色背景，正常时白色
 17. 微信端 Gemini 响应约 20 秒（免费模型 + Render Ohio 节点延迟），收到消息后先发确认提示改善体感
 18. 产品改名时 Worker `saveProducts` 的 `changeMap` 同步逻辑曾产生格式错误的 product_id（格式：`旧ID（新名称）`），已通过 SQL REPLACE 修正两个受影响订单（ORD_1779632382743_irqd、ORD_1779980370001_1hf6）。如再次改产品名后发现表头出现重复列，在 D1 Console 运行 DISTINCT 查询排查
-19. PDF 生成用 pdfmake 浏览器版（cdnjs CDN），字体 `NotoSansSC-Regular.ttf` 存 R2，不打包进 HTML。首次生成约 5-10 秒（下载字体），之后页面内缓存
+19. PDF 生成用 pdfmake 浏览器版（cdnjs CDN），字体 `NotoSansSC-Regular.ttf` 存 R2，不打包进 HTML。登录后台时后台预热下载，多次并发调用共享同一个 Promise（不重复下载）。首次点生成需等字体下载完成（约 15-30 秒），之后页面内缓存，第二次即时
 20. 生成 PDF 后：新分页直接导航到 R2 URL（与历史档案"查看"方式相同），同时在当前页用 blob URL 触发下载（避免跨域导航导致管理后台页面跳走）。安卓 Chrome 新分页可正常预览，下载提示出现在管理后台页不影响预览
 21. PDF 文件名格式：
     - 取件单：`取件单_日期_取货人_HH_MM_SS.pdf`（例：`取件单_2025-05-28_小陈_14_30_05.pdf`）
     - 寄件单：`寄件单_日期_HH_MM_SS.pdf`（例：`寄件单_2025-05-28_14_30_05.pdf`）
     - 时间以中国时间（Asia/Shanghai）为准
 22. 取件单 PDF 内不含填表人列（管理后台表格仍显示）。寄件单合并收件人时，所有被合并行的备注用"；"连接保留，不会因取第一行而丢失备注
+23. 历史档案的订单 ID 存在 R2 `customMetadata.orderIds`（逗号分隔字符串）。`/api/pdfs` GET 需加 `include: ['customMetadata']` 才能读取，上传时通过 FormData 的 `orderIds` 字段传入。取件单传 `pendingExportIds`，寄件单传选中的 `ids`（合并弹窗流程通过 `pendingShippingOrderIds` 全局变量中转）
+24. 字体加载用 `_pdfFontPromise` 缓存进行中的 Promise，避免预热和用户点击并发时重复下载
