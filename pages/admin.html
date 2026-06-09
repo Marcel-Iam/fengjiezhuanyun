@@ -490,7 +490,7 @@ function renderIncoming(){
     const allPaid=o.outgoing.every(r=>r.paid_status);
     if(somePaid&&!allPaid){
       const cb=w.querySelector(`input[data-paidall="${o.id}"]`);
-      if(cb)cb.indeterminate=true;
+      if(cb){cb.indeterminate=true;cb.dataset.indet='true';}
     }
   });
 }
@@ -618,13 +618,13 @@ async function markUnshipped(id){
 }
 
 // ===== Paid Status =====
-let pendingPaidId=null,pendingPaidCheckbox=null,pendingPaidValue=null,pendingPaidOutUid=null;
+let pendingPaidId=null,pendingPaidCheckbox=null,pendingPaidValue=null,pendingPaidOutUid=null,pendingPaidWasIndet=false;
 
 // 来件管理：操作订单所有 outgoing（indeterminate → checked 代表全付）
 function promptPaidStatusAll(id,checkbox){
   const o=orders.find(x=>x.id===id);if(!o)return;
   const newVal=checkbox.checked;
-  pendingPaidId=id;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;pendingPaidOutUid=null;
+  pendingPaidWasIndet=checkbox.dataset.indet==='true';checkbox.dataset.indet='';pendingPaidId=id;pendingPaidCheckbox=checkbox;pendingPaidValue=newVal;pendingPaidOutUid=null;
   const codes=o.incoming.map(inc=>inc.express_code).join(', ');
   const msg=newVal?`确认订单 <strong>${esc(codes)}</strong> 的运费已收？`:`确认取消订单 <strong>${esc(codes)}</strong> 的已付运费状态？`;
   document.getElementById('paidConfirmMessage').innerHTML=msg;
@@ -647,8 +647,11 @@ function promptPaidStatusOne(orderId,outUid,checkbox){
 }
 
 function cancelPaidConfirm(){
-  if(pendingPaidCheckbox){pendingPaidCheckbox.checked=!pendingPaidValue;pendingPaidCheckbox.indeterminate=false;}
-  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;
+  if(pendingPaidCheckbox){
+    if(pendingPaidWasIndet){pendingPaidCheckbox.indeterminate=true;pendingPaidCheckbox.checked=false;}
+    else{pendingPaidCheckbox.checked=!pendingPaidValue;pendingPaidCheckbox.indeterminate=false;}
+  }
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;pendingPaidWasIndet=false;
   closeModal('paidConfirmModal');
 }
 function doPaidConfirm(){
@@ -656,7 +659,7 @@ function doPaidConfirm(){
   if(pendingPaidId===null)return;
   if(pendingPaidOutUid) savePaidStatusOne(pendingPaidId,pendingPaidOutUid,pendingPaidValue);
   else savePaidStatusAll(pendingPaidId,pendingPaidValue);
-  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;
+  pendingPaidId=null;pendingPaidCheckbox=null;pendingPaidValue=null;pendingPaidOutUid=null;pendingPaidWasIndet=false;
 }
 
 // 操作订单所有 outgoing 的 paid_status
